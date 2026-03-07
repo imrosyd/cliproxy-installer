@@ -280,18 +280,35 @@ class UnifiedHandler(http.server.SimpleHTTPRequestHandler):
     def proxy_request(self, method):
         try:
             target_url = f'http://localhost:{BACKEND_PORT}{self.path}'
+            print(f"   [Proxy] {method} {self.path} -> {target_url}")
 
             # Copy headers
             headers = {}
+            # Standard headers
             for key in ['X-Management-Key', 'Authorization', 'Content-Type', 'Accept']:
-                if key in self.headers:
-                    headers[key] = self.headers[key]
+                val = self.headers.get(key)
+                if val:
+                    headers[key] = val
+
+            # Anthropic specific headers for Claude Code
+            for key in ['x-api-key', 'anthropic-version', 'anthropic-beta']:
+                val = self.headers.get(key)
+                if val:
+                    headers[key] = val
+                    print(f"   [Header] {key}: {val[:5]}...")
+            
+            # Map x-api-key to Authorization (ALWAYS prioritize x-api-key for proxying)
+            x_api_key = self.headers.get('x-api-key')
+            if x_api_key:
+                headers['Authorization'] = f"Bearer {x_api_key}"
+                print(f"   [Mapping] x-api-key -> Authorization")
 
             # Get body for POST/PUT/DELETE
             data = None
-            if method in ['POST', 'PUT', 'DELETE'] and 'Content-Length' in self.headers:
-                content_length = int(self.headers['Content-Length'])
+            if method in ['POST', 'PUT', 'DELETE'] and self.headers.get('Content-Length'):
+                content_length = int(self.headers.get('Content-Length'))
                 data = self.rfile.read(content_length)
+                print(f"   [Body] Size: {content_length}")
 
             req = urllib.request.Request(
                 target_url,
@@ -301,16 +318,20 @@ class UnifiedHandler(http.server.SimpleHTTPRequestHandler):
             )
 
             with urllib.request.urlopen(req, timeout=30) as response:
+                content = response.read()
                 self.send_response(response.status)
 
                 for header, value in response.headers.items():
-                    if header.lower() not in ['transfer-encoding', 'connection', 'access-control-allow-origin']:
+                    if header.lower() not in ['transfer-encoding', 'connection', 'access-control-allow-origin', 'content-length']:
                         self.send_header(header, value)
-
+                
+                # We handle content-length manually to match read()
+                self.send_header('Content-Length', str(len(content)))
                 self.end_headers()
-                self.wfile.write(response.read())
+                self.wfile.write(content)
 
         except urllib.error.HTTPError as e:
+            print(f"   [Error] Backend returned {e.code}")
             self.send_response(e.code)
             self.send_header('Content-Type', 'application/json')
             self.end_headers()
