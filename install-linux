@@ -1,0 +1,719 @@
+#!/bin/bash
+
+# ==============================================================================
+# CLIProxy Ultimate Installer for Linux
+# Includes: Go, Git, CLIProxyAPIPlus, and Shortcuts
+# ==============================================================================
+
+# --- Colors ---
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+CYAN='\033[0;36m'
+NC='\033[0m' # No Color
+
+# --- Helper Functions ---
+
+# --- OS Detection ---
+detect_distro() {
+    if [ -f /etc/os-release ]; then
+        . /etc/os-release
+        OS_NAME=$NAME
+        DISTRO_ID=$ID
+    else
+        OS_NAME=$(uname -s)
+        DISTRO_ID="unknown"
+    fi
+}
+
+install_dependencies() {
+    detect_distro
+    echo -e "${YELLOW}Detected OS: $OS_NAME ($DISTRO_ID)${NC}"
+
+    if command -v git &> /dev/null && command -v go &> /dev/null; then
+        echo -e "${GREEN}[OK] Git and Go are already installed.${NC}"
+        return 0
+    fi
+
+    echo -e "${YELLOW}Installing dependencies...${NC}"
+
+    case $DISTRO_ID in
+        ubuntu|debian|kali|pop)
+            sudo apt-get update
+            sudo apt-get install -y git golang
+            ;;
+        fedora|centos|rhel)
+            sudo dnf install -y git golang || sudo yum install -y git golang
+            ;;
+        arch|manjaro)
+            sudo pacman -Syu --noconfirm git go
+            ;;
+        opensuse*|suse)
+            sudo zypper install -y git go
+            ;;
+        *)
+            echo -e "${RED}[!] Unsupported distro for auto-install.${NC}"
+            echo "Please manually install 'git' and 'go' using your package manager."
+            if ! command -v go &> /dev/null; then exit 1; fi
+            ;;
+    esac
+
+    echo -e "${GREEN}[OK] Dependencies ready.${NC}"
+}
+
+setup_shortcuts() {
+    SHELL_CONFIG="$HOME/.bashrc"
+    if [[ "$SHELL" == *"zsh"* ]]; then
+        SHELL_CONFIG="$HOME/.zshrc"
+    elif [[ "$SHELL" == *"fish"* ]]; then
+        # Fish uses different syntax - create fish config
+        FISH_CONFIG="$HOME/.config/fish/config.fish"
+        mkdir -p "$(dirname "$FISH_CONFIG")"
+
+        echo -e "${YELLOW}Adding shortcuts for Fish shell to $FISH_CONFIG...${NC}"
+
+        # Remove old aliases
+        sed -i '/alias cp-login/d' "$FISH_CONFIG" 2>/dev/null || true
+        sed -i '/alias cp-start/d' "$FISH_CONFIG" 2>/dev/null || true
+        sed -i '/alias cp-update/d' "$FISH_CONFIG" 2>/dev/null || true
+        sed -i '/alias cp-login-url/d' "$FISH_CONFIG" 2>/dev/null || true
+
+        # Add new aliases (Fish syntax)
+        echo "" >> "$FISH_CONFIG"
+        echo "# CLIProxy Shortcuts" >> "$FISH_CONFIG"
+        echo "alias cp-login='$HOME/.cli-proxy-api/scripts/login.sh'" >> "$FISH_CONFIG"
+        echo "alias cp-login-url='$HOME/.cli-proxy-api/scripts/login-url.sh'" >> "$FISH_CONFIG"
+        echo "alias cp-start='$HOME/.cli-proxy-api/scripts/start.sh'" >> "$FISH_CONFIG"
+        echo "alias cp-update='curl -sL https://raw.githubusercontent.com/khmuhtadin/cliproxy-installer/main/install-linux | bash -s -- -update'" >> "$FISH_CONFIG"
+
+        echo -e "${GREEN}[OK] Fish shortcuts added!${NC}"
+        return
+    fi
+
+    echo -e "${YELLOW}Adding shortcuts (cp-login, cp-login-url, cp-start, cp-update) to $SHELL_CONFIG...${NC}"
+
+    # Remove old aliases if they exist (Linux sed syntax: no empty string after -i)
+    sed -i '/alias cp-login/d' "$SHELL_CONFIG" 2>/dev/null || true
+    sed -i '/alias cp-start/d' "$SHELL_CONFIG" 2>/dev/null || true
+    sed -i '/alias cp-update/d' "$SHELL_CONFIG" 2>/dev/null || true
+    sed -i '/alias cp-login-url/d' "$SHELL_CONFIG" 2>/dev/null || true
+
+    # Add new aliases
+    echo "" >> "$SHELL_CONFIG"
+    echo "# CLIProxy Shortcuts" >> "$SHELL_CONFIG"
+    echo "alias cp-login=\"$HOME/.cli-proxy-api/scripts/login.sh\"" >> "$SHELL_CONFIG"
+    echo "alias cp-login-url=\"$HOME/.cli-proxy-api/scripts/login-url.sh\"" >> "$SHELL_CONFIG"
+    echo "alias cp-start=\"$HOME/.cli-proxy-api/scripts/start.sh\"" >> "$SHELL_CONFIG"
+    echo "alias cp-stop=\"$HOME/.cli-proxy-api/scripts/stop.sh\"" >> "$SHELL_CONFIG"
+    echo "alias cp-update=\"curl -sL https://raw.githubusercontent.com/imrosyd/cliproxy-installer/main/install-linux | bash -s -- -update\"" >> "$SHELL_CONFIG"
+    echo "alias cp-claude=\"$HOME/.cli-proxy-api/scripts/cp-claude.sh\"" >> "$SHELL_CONFIG"
+    echo "alias cp-db=\"/usr/local/bin/cp-db\"" >> "$SHELL_CONFIG"
+    echo "alias cp-opencode=\"$HOME/.cli-proxy-api/scripts/cp-opencode.sh\"" >> "$SHELL_CONFIG"
+    echo "alias cp-droid=\"$HOME/.cli-proxy-api/scripts/cp-droid.sh\"" >> "$SHELL_CONFIG"
+    echo "alias cp-uninstall=\"curl -sL https://raw.githubusercontent.com/imrosyd/cliproxy-installer/main/uninstall | bash\"" >> "$SHELL_CONFIG"
+
+    echo -e "${GREEN}[OK] Shortcuts added!${NC}"
+}
+
+clean_existing_configs() {
+    echo -e "${YELLOW}>>> Cleaning existing configurations to ensure a fresh start...${NC}"
+    
+    # 1. CLIProxy API
+    if [ -d "$HOME/.cli-proxy-api" ]; then
+        echo "Removing ~/.cli-proxy-api..."
+        rm -rf "$HOME/.cli-proxy-api"
+    fi
+
+    # 2. OpenCode
+    if [ -f "$HOME/.config/opencode/opencode.json" ]; then
+        echo "Removing ~/.config/opencode/opencode.json..."
+        rm -f "$HOME/.config/opencode/opencode.json"
+    fi
+
+    # 3. Claude Code
+    if [ -f "$HOME/.claude/settings.json" ]; then
+        echo "Removing ~/.claude/settings.json..."
+        rm -f "$HOME/.claude/settings.json"
+    fi
+
+    # 4. Factory.ai Droid
+    if [ -f "$HOME/.factory/config.json" ]; then
+        echo "Removing ~/.factory/config.json..."
+        rm -f "$HOME/.factory/config.json"
+    fi
+
+    echo -e "${GREEN}[OK] All old configurations cleared.${NC}"
+}
+
+install_cliproxy() {
+    if ! command -v go &> /dev/null; then
+        echo -e "${RED}[Error] Go is not found!${NC}"
+        echo "Please run option 1 to install dependencies first."
+        exit 1
+    fi
+
+    # Always clean existing configs for a fresh install/update as requested
+    clean_existing_configs
+
+    echo -e "${YELLOW}>>> Starting CLIProxy Installation...${NC}"
+
+    BIN_DIR="$HOME/bin"
+    CONFIG_DIR="$HOME/.cli-proxy-api"
+    SCRIPTS_DIR="$CONFIG_DIR/scripts"
+
+    # Ensure bin is in PATH
+    if [[ ":$PATH:" != ":$HOME/bin:"* ]]; then
+        echo 'export PATH="$HOME/bin:$PATH"' >> "$HOME/.bashrc"
+        [ -f "$HOME/.zshrc" ] && echo 'export PATH="$HOME/bin:$PATH"' >> "$HOME/.zshrc"
+        [ -f "$HOME/.config/fish/config.fish" ] && echo 'set -gx PATH $HOME/bin $PATH' >> "$HOME/.config/fish/config.fish"
+        echo -e "${YELLOW}[!] Added $HOME/bin to PATH. You may need to restart terminal.${NC}"
+    fi
+
+    mkdir -p "$BIN_DIR"
+    mkdir -p "$CONFIG_DIR"
+    mkdir -p "$SCRIPTS_DIR"
+    STATIC_DIR="$CONFIG_DIR/static"
+    mkdir -p "$STATIC_DIR"
+
+    # Copy enhanced dashboard
+    echo "📊 Installing enhanced dashboard..."
+    DASHBOARD_SRC="$(dirname "$0")/assets/static/dashboard.html"
+    if [ -f "$DASHBOARD_SRC" ]; then
+        cp "$DASHBOARD_SRC" "$STATIC_DIR/dashboard.html"
+        echo -e "${GREEN}[OK] Dashboard installed from local assets${NC}"
+    else
+        # Fallback: try to download from GitHub
+        if curl -fsSL "https://raw.githubusercontent.com/imrosyd/cliproxy-installer/main/assets/static/dashboard.html" -o "$STATIC_DIR/dashboard.html" 2>/dev/null; then
+            echo -e "${GREEN}[OK] Dashboard downloaded from GitHub${NC}"
+        else
+            echo -e "${YELLOW}[!] Could not install dashboard${NC}"
+        fi
+    fi
+
+    # Install quota-fetcher.py
+    echo "Installing quota fetcher daemon..."
+    QUOTA_SRC="$(dirname "$0")/assets/scripts/quota-fetcher.py"
+    if [ -f "$QUOTA_SRC" ]; then
+        cp "$QUOTA_SRC" "$SCRIPTS_DIR/quota-fetcher.py"
+        echo -e "${GREEN}[OK] Quota fetcher installed from local assets${NC}"
+    else
+        if curl -fsSL "https://raw.githubusercontent.com/imrosyd/cliproxy-installer/main/assets/scripts/quota-fetcher.py" -o "$SCRIPTS_DIR/quota-fetcher.py" 2>/dev/null; then
+            echo -e "${GREEN}[OK] Quota fetcher downloaded from GitHub${NC}"
+        else
+            echo -e "${YELLOW}[!] Could not install quota fetcher${NC}"
+        fi
+    fi
+
+    # Install unified-server.py (serves static files + proxies API)
+    echo "Installing unified server..."
+    UNIFIED_SRC="$(dirname "$0")/unified-server.py"
+    if [ -f "$UNIFIED_SRC" ]; then
+        cp "$UNIFIED_SRC" "$SCRIPTS_DIR/unified-server.py"
+        echo -e "${GREEN}[OK] Unified server installed from local assets${NC}"
+    else
+        if curl -fsSL "https://raw.githubusercontent.com/khmuhtadin/cliproxy-installer/main/unified-server.py" -o "$SCRIPTS_DIR/unified-server.py" 2>/dev/null; then
+            echo -e "${GREEN}[OK] Unified server downloaded from GitHub${NC}"
+        else
+            echo -e "${YELLOW}[!] Could not install unified server${NC}"
+        fi
+    fi
+
+    # Install cp-db command
+    echo "🔮 Installing cp-db shortcut..."
+    CPDB_SRC="$(dirname "$0")/assets/scripts/cp-db.sh"
+    if [ -f "$CPDB_SRC" ]; then
+        sudo cp "$CPDB_SRC" /usr/local/bin/cp-db
+        sudo chmod +x /usr/local/bin/cp-db
+        echo -e "${GREEN}[OK] cp-db installed from local assets${NC}"
+    else
+        # Fallback: try to download from GitHub
+        if curl -fsSL "https://raw.githubusercontent.com/khmuhtadin/cliproxy-installer/main/assets/scripts/cp-db.sh" -o "/tmp/cp-db" 2>/dev/null; then
+            sudo mv /tmp/cp-db /usr/local/bin/cp-db
+            sudo chmod +x /usr/local/bin/cp-db
+            echo -e "${GREEN}[OK] cp-db downloaded from GitHub${NC}"
+        else
+            echo -e "${YELLOW}[!] Could not install cp-db command${NC}"
+        fi
+    fi
+
+
+    # Clone & Build
+    TEMP_DIR=$(mktemp -d)
+    echo "Cloning repository..."
+    if ! git clone --depth 1 https://github.com/router-for-me/CLIProxyAPIPlus.git "$TEMP_DIR"; then
+        echo -e "${RED}[Error] Failed to clone repository${NC}"
+        rm -rf "$TEMP_DIR"
+        exit 1
+    fi
+
+    echo "Building binary..."
+    cd "$TEMP_DIR"
+    if ! go build -o cliproxyapi-plus ./cmd/server; then
+        echo -e "${RED}[Error] Failed to build binary${NC}"
+        cd -
+        rm -rf "$TEMP_DIR"
+        exit 1
+    fi
+    mv -f cliproxyapi-plus "$BIN_DIR/cliproxyapi-plus"
+    cd -
+    rm -rf "$TEMP_DIR"
+
+    echo -e "${GREEN}[OK] Binary built and installed successfully.${NC}"
+
+    # Config
+    # Only create if it doesn't exist, to preserve user settings on update
+    if [ ! -f "$CONFIG_DIR/config.yaml" ]; then
+        # Ask for optional baseURL and apiKey configuration
+        echo ""
+        echo -e "${YELLOW}========================================${NC}"
+        echo -e "${YELLOW}   Optional: Custom Base URL & API Key${NC}"
+        echo -e "${YELLOW}========================================${NC}"
+        echo "You can configure a custom base URL and API key now."
+        echo "This is useful if you want to use a different proxy endpoint."
+        echo ""
+        echo "Press Enter to skip and use defaults (localhost:8317, sk-dummy)"
+        echo ""
+        
+        read -p "Configure custom base URL and API key? (y/n): " configure_custom < /dev/tty
+        
+        CUSTOM_BASE_URL=""
+        CUSTOM_API_KEY=""
+        
+        if [[ "$configure_custom" =~ ^[Yy]$ ]]; then
+            echo ""
+            read -p "Enter base URL (e.g., http://localhost:8317): " CUSTOM_BASE_URL < /dev/tty
+            read -p "Enter API key (e.g., sk-your-key): " CUSTOM_API_KEY < /dev/tty
+            
+            # Use defaults if empty
+            if [ -z "$CUSTOM_BASE_URL" ]; then
+                CUSTOM_BASE_URL="http://localhost:8317"
+            fi
+            if [ -z "$CUSTOM_API_KEY" ]; then
+                CUSTOM_API_KEY="sk-dummy"
+            fi
+            
+            echo -e "${GREEN}[OK] Using custom configuration${NC}"
+            echo "  Base URL: $CUSTOM_BASE_URL"
+            echo "  API Key: $CUSTOM_API_KEY"
+        else
+            CUSTOM_BASE_URL="http://localhost:8317"
+            CUSTOM_API_KEY="sk-dummy"
+            echo -e "${CYAN}[i] Using default configuration${NC}"
+        fi
+        
+        cat > "$CONFIG_DIR/config.yaml" <<EOF
+port: 8317
+auth-dir: "$CONFIG_DIR"
+api-keys:
+  - "$CUSTOM_API_KEY"
+remote-management:
+  allow-remote: true
+  secret-key: "$CUSTOM_API_KEY"
+quota-exceeded:
+  switch-project: true
+  switch-preview-model: true
+EOF
+        echo -e "${GREEN}[OK] Created config.yaml${NC}"
+        
+        # Store base URL for later use if custom
+        if [ "$CUSTOM_BASE_URL" != "http://localhost:8317" ]; then
+            echo "$CUSTOM_BASE_URL" > "$CONFIG_DIR/.custom_base_url"
+            echo "$CUSTOM_API_KEY" > "$CONFIG_DIR/.custom_api_key"
+        fi
+    fi
+
+    # Helper Scripts
+    cat > "$SCRIPTS_DIR/start.sh" <<EOF
+#!/bin/bash
+echo "Stopping any existing CLIProxy instances..."
+if [ -f "$SCRIPTS_DIR/stop.sh" ]; then
+    bash "$SCRIPTS_DIR/stop.sh" >/dev/null 2>&1
+else
+    pkill -f unified-server.py || true
+    pkill -f cliproxyapi-plus || true
+fi
+echo "Starting CLIProxy on http://localhost:8317"
+if [ -f "$SCRIPTS_DIR/unified-server.py" ] && command -v python3 &>/dev/null; then
+    python3 "$SCRIPTS_DIR/unified-server.py"
+else
+    echo "[!] Unified server not available, starting API-only mode"
+    "$BIN_DIR/cliproxyapi-plus" --config "$CONFIG_DIR/config.yaml"
+fi
+EOF
+    chmod +x "$SCRIPTS_DIR/start.sh"
+
+    cat > "$SCRIPTS_DIR/login.sh" <<EOF
+#!/bin/bash
+BINARY="$BIN_DIR/cliproxyapi-plus"
+CONFIG="$CONFIG_DIR/config.yaml"
+
+clear
+echo "========================================="
+echo "   CLIProxy Login - Select Provider"
+echo "========================================="
+echo ""
+echo "1. Antigravity (Claude/Gemini)"
+echo "2. GitHub Copilot"
+echo "3. Gemini CLI"
+echo "4. Codex"
+echo "5. Claude"
+echo "6. Qwen"
+echo "7. iFlow"
+echo ""
+echo "0. Exit"
+echo ""
+
+read -p "Select provider (0-7): " c
+case \$c in
+    1) "\$BINARY" --config "\$CONFIG" -antigravity-login ;;
+    2) "\$BINARY" --config "\$CONFIG" -github-copilot-login ;;
+    3) "\$BINARY" --config "\$CONFIG" -login ;;
+    4) "\$BINARY" --config "\$CONFIG" -codex-login ;;
+    5) "\$BINARY" --config "\$CONFIG" -claude-login ;;
+    6) "\$BINARY" --config "\$CONFIG" -qwen-login ;;
+    7) "\$BINARY" --config "\$CONFIG" -iflow-login ;;
+    0) echo "Exiting..."; exit 0 ;;
+    *) echo "Invalid choice." ;;
+esac
+EOF
+    chmod +x "$SCRIPTS_DIR/login.sh"
+
+    # Login URL Script (for VPS/headless - prints URL only, no browser)
+    cat > "$SCRIPTS_DIR/login-url.sh" <<EOF
+#!/bin/bash
+# Login script for VPS/headless servers - prints URL only, no browser opening
+BINARY="$BIN_DIR/cliproxyapi-plus"
+CONFIG="$CONFIG_DIR/config.yaml"
+
+# Set BROWSER to echo to prevent browser opening
+export BROWSER=echo
+
+clear
+echo "========================================="
+echo "   CLIProxy Login (URL Mode)"
+echo "   For VPS/Headless Servers"
+echo "========================================="
+echo ""
+echo "This will print the login URL instead of opening a browser."
+echo "Copy the URL and open it in your local browser."
+echo ""
+echo "1. Antigravity (Claude/Gemini)"
+echo "2. GitHub Copilot"
+echo "3. Gemini CLI"
+echo "4. Codex"
+echo "5. Claude"
+echo "6. Qwen"
+echo "7. iFlow"
+echo ""
+echo "0. Exit"
+echo ""
+
+read -p "Select provider (0-7): " c
+case \$c in
+    1) "\$BINARY" --config "\$CONFIG" -antigravity-login ;;
+    2) "\$BINARY" --config "\$CONFIG" -github-copilot-login ;;
+    3) "\$BINARY" --config "\$CONFIG" -login ;;
+    4) "\$BINARY" --config "\$CONFIG" -codex-login ;;
+    5) "\$BINARY" --config "\$CONFIG" -claude-login ;;
+    6) "\$BINARY" --config "\$CONFIG" -qwen-login ;;
+    7) "\$BINARY" --config "\$CONFIG" -iflow-login ;;
+    0) echo "Exiting..."; exit 0 ;;
+    *) echo "Invalid choice." ;;
+esac
+EOF
+    chmod +x "$SCRIPTS_DIR/login-url.sh"
+    # Add Provider Script (Interactive + Auto-Start)
+    cat > "$SCRIPTS_DIR/cp-add-provider.py" <<'EOF'
+import os
+import sys
+import json
+import urllib.request
+import yaml
+
+CONFIG_PATH = os.path.expanduser("~/.cli-proxy-api/config.yaml")
+
+def print_header():
+    print("=========================================")
+    print("   CLIProxy - Add Custom Provider")
+    print("=========================================")
+    print("This will add an OpenAI-Compatible endpoint")
+    print("seamlessly into your local configuration.\n")
+
+def get_input(prompt, required=True):
+    while True:
+        val = input(prompt).strip()
+        if val:
+            return val
+        if not required:
+            return ""
+        print("[!] This field is required.\n")
+
+def fetch_models(base_url, api_key):
+    print("\n⏳ Fetching available models from API...")
+    url = base_url.rstrip("/") + "/models"
+    
+    try:
+        req = urllib.request.Request(
+            url,
+            headers={"Authorization": f"Bearer {api_key}"}
+        )
+        with urllib.request.urlopen(req, timeout=10) as response:
+            data = json.loads(response.read().decode())
+            models = data.get("data", [])
+            return [m.get("id") for m in models if m.get("id")]
+    except Exception as e:
+        print(f"❌ Failed to fetch models: {e}")
+        return []
+
+def main():
+    print_header()
+    provider_name = get_input("Provider Name (e.g., openai): ")
+    base_url = get_input("Base URL (e.g., https://api.openai.com/v1): ")
+    api_key = get_input("API Key (e.g., sk-...): ")
+    
+    models = fetch_models(base_url, api_key)
+    
+    if not models:
+        print("\n⚠️  No models could be auto-fetched.")
+        print("You can add models manually later in config.yaml.")
+        models_to_add = []
+    else:
+        print(f"✅ Fast-fetched {len(models)} models!")
+        models_to_add = [{"name": m, "alias": m} for m in models]
+    
+    if not os.path.exists(CONFIG_PATH):
+        print(f"\n❌ CLIProxy Config not found at {CONFIG_PATH}")
+        sys.exit(1)
+        
+    try:
+        with open(CONFIG_PATH, 'r') as f:
+            config = yaml.safe_load(f) or {}
+    except Exception as e:
+        print(f"\n❌ Error reading config.yaml: {e}")
+        sys.exit(1)
+        
+    if "openai-compatibility" not in config or not config["openai-compatibility"]:
+        config["openai-compatibility"] = []
+        
+    for provider in config["openai-compatibility"]:
+        if provider.get("name") == provider_name:
+            print(f"\n⚠️  Provider '{provider_name}' already exists in config.yaml.")
+            sys.exit(1)
+            
+    new_provider = {
+        "name": provider_name,
+        "base-url": base_url,
+        "api-key-entries": [{"api-key": api_key}],
+        "models": models_to_add
+    }
+    
+    config["openai-compatibility"].append(new_provider)
+    
+    try:
+        with open(CONFIG_PATH, 'w') as f:
+            yaml.dump(config, f, default_flow_style=False, sort_keys=False)
+    except Exception as e:
+        print(f"\n❌ Error saving config.yaml: {e}")
+        sys.exit(1)
+        
+    print("\n✅ Successfully added custom provider to config.yaml!")
+    print("Please restart CLIProxy using `cp-start` to apply the changes.")
+
+if __name__ == "__main__":
+    main()
+EOF
+
+    cat > "$SCRIPTS_DIR/cp-add-provider.sh" <<'EOF'
+#!/bin/bash
+if ! command -v python3 &> /dev/null; then
+    echo "Python3 is not installed. Please install it to use cp-add-provider."
+    exit 1
+fi
+python3 "$HOME/.cli-proxy-api/scripts/cp-add-provider.py"
+EOF
+    chmod +x "$SCRIPTS_DIR/cp-add-provider.sh"
+
+    # Droid Config Injection
+    # Linux Droid path might vary, usually ~/.factory or ~/.config/factory ??
+    # Assuming ~/.factory based on previous script, but user might need to adjust
+    DROID_FILE="$HOME/.factory/config.json"
+    mkdir -p "$(dirname "$DROID_FILE")"
+
+    # Define target models
+    cat > "/tmp/cliproxy_new_models.json" <<EOF
+{
+    "custom_models": [
+        { "model_display_name": "GPT-OSS 120B Medium [Antigravity]", "model": "gpt-oss-120b-medium", "base_url": "http://localhost:8317/v1", "api_key": "sk-dummy", "provider": "openai" },
+        { "model_display_name": "GPT-OSS 120B Large [Antigravity]", "model": "gpt-oss-120b-large", "base_url": "http://localhost:8317/v1", "api_key": "sk-dummy", "provider": "openai" },
+        { "model_display_name": "Claude Opus 4.5 Thinking [Antigravity]", "model": "gemini-claude-opus-4-5-thinking", "base_url": "http://localhost:8317/v1", "api_key": "sk-dummy", "provider": "openai" },
+        { "model_display_name": "Claude Sonnet 4.5 Thinking [Antigravity]", "model": "gemini-claude-sonnet-4-5-thinking", "base_url": "http://localhost:8317/v1", "api_key": "sk-dummy", "provider": "openai" },
+        { "model_display_name": "Claude Sonnet 4.5 [Antigravity]", "model": "gemini-claude-sonnet-4-5", "base_url": "http://localhost:8317/v1", "api_key": "sk-dummy", "provider": "openai" },
+        { "model_display_name": "Gemini 3 Pro [Antigravity]", "model": "gemini-3-pro-preview", "base_url": "http://localhost:8317/v1", "api_key": "sk-dummy", "provider": "openai" },
+        { "model_display_name": "Claude Opus 4.5 [Copilot]", "model": "claude-opus-4.5", "base_url": "http://localhost:8317/v1", "api_key": "sk-dummy", "provider": "openai" },
+        { "model_display_name": "GPT-5 Mini [Copilot]", "model": "gpt-5-mini", "base_url": "http://localhost:8317/v1", "api_key": "sk-dummy", "provider": "openai" },
+        { "model_display_name": "GPT-5.1 Codex Max [Codex]", "model": "gpt-5.1-codex-max", "base_url": "http://localhost:8317/v1", "api_key": "sk-dummy", "provider": "openai" },
+        { "model_display_name": "Gemini 3 Ultra [Antigravity]", "model": "gemini-3-ultra-preview", "base_url": "http://localhost:8317/v1", "api_key": "sk-dummy", "provider": "openai" },
+        { "model_display_name": "Llama 4 405B [Meta]", "model": "llama-4-405b-instruct", "base_url": "http://localhost:8317/v1", "api_key": "sk-dummy", "provider": "openai" },
+        { "model_display_name": "Nano Banana [Local]", "model": "nano-banana-v1", "base_url": "http://localhost:8317/v1", "api_key": "sk-dummy", "provider": "openai" },
+        { "model_display_name": "Gemini 2.5 Pro [Gemini]", "model": "gemini-2.5-pro", "base_url": "http://localhost:8317/v1", "api_key": "sk-dummy", "provider": "openai" },
+        { "model_display_name": "Qwen3 Coder Plus [Qwen]", "model": "qwen3-coder-plus", "base_url": "http://localhost:8317/v1", "api_key": "sk-dummy", "provider": "openai" },
+        { "model_display_name": "GLM 4.6 [iFlow]", "model": "glm-4.6", "base_url": "http://localhost:8317/v1", "api_key": "sk-dummy", "provider": "openai" },
+        { "model_display_name": "Claude Opus 4.5 [Kiro]", "model": "kiro-claude-opus-4.5", "base_url": "http://localhost:8317/v1", "api_key": "sk-dummy", "provider": "openai" },
+        { "model_display_name": "Claude Sonnet 4.5 [Kiro]", "model": "kiro-claude-sonnet-4.5", "base_url": "http://localhost:8317/v1", "api_key": "sk-dummy", "provider": "openai" },
+        { "model_display_name": "Claude Sonnet 4 [Kiro]", "model": "kiro-claude-sonnet-4", "base_url": "http://localhost:8317/v1", "api_key": "sk-dummy", "provider": "openai" },
+        { "model_display_name": "Claude Haiku 4.5 [Kiro]", "model": "kiro-claude-haiku-4.5", "base_url": "http://localhost:8317/v1", "api_key": "sk-dummy", "provider": "openai" }
+    ]
+}
+EOF
+
+    if [ ! -f "$DROID_FILE" ]; then
+        cp "/tmp/cliproxy_new_models.json" "$DROID_FILE"
+        echo -e "${GREEN}[OK] Droid config created.${NC}"
+    else
+        echo -e "${YELLOW}[!] config.json exists, checking for missing models...${NC}"
+
+        # Download and use shared merge utility
+        MERGE_UTIL="/tmp/merge_config_$$.go"
+        if curl -fsSL "https://raw.githubusercontent.com/khmuhtadin/cliproxy-installer/main/merge-config.go" -o "$MERGE_UTIL"; then
+            go run "$MERGE_UTIL" "$DROID_FILE" "/tmp/cliproxy_new_models.json"
+            rm -f "$MERGE_UTIL"
+        else
+            echo -e "${RED}[Error] Failed to download config merger. Skipping model merge.${NC}"
+        fi
+    fi
+    rm -f "/tmp/cliproxy_new_models.json"
+
+
+    # CALL SHORTCUT SETUP
+    setup_shortcuts
+
+    echo -e "${GREEN}========================================${NC}"
+    echo -e "${GREEN}  INSTALLATION SUCCESS!${NC}"
+    echo -e "${GREEN}========================================${NC}"
+    echo "Restart your terminal or run 'source ~/.bashrc' (or zshrc) to use shortcuts:"
+    echo -e "  1. Login: ${CYAN}cp-login${NC}"
+    echo -e "  2. Start/Restart: ${CYAN}cp-start${NC}"
+    echo -e "  3. Add Provider: ${CYAN}cp-add-provider${NC}"
+    echo -e "  4. Update: ${CYAN}cp-update${NC} (Fetches latest core & installer)"
+}
+
+# --- Install Claude Code ---
+install_claude_code() {
+    echo -e "${YELLOW}>>> Checking for Claude Code...${NC}"
+
+    if command -v claude &> /dev/null; then
+        echo -e "${GREEN}[OK] Claude Code is already installed.${NC}"
+        claude --version 2>/dev/null || true
+        return 0
+    fi
+
+    echo -e "${YELLOW}Claude Code not found. Installing...${NC}"
+
+    # Check for npm
+    if ! command -v npm &> /dev/null; then
+        echo -e "${YELLOW}npm not found. Installing Node.js...${NC}"
+
+        detect_distro
+        case $DISTRO_ID in
+            ubuntu|debian|kali|pop)
+                # Use NodeSource for latest Node.js
+                curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -
+                sudo apt-get install -y nodejs
+                ;;
+            fedora|centos|rhel)
+                sudo dnf install -y nodejs npm || sudo yum install -y nodejs npm
+                ;;
+            arch|manjaro)
+                sudo pacman -Syu --noconfirm nodejs npm
+                ;;
+            opensuse*|suse)
+                sudo zypper install -y nodejs npm
+                ;;
+            *)
+                echo -e "${RED}[!] Unsupported distro for auto-install.${NC}"
+                echo "Please manually install 'nodejs' and 'npm' using your package manager."
+                return 1
+                ;;
+        esac
+    fi
+
+    echo -e "${YELLOW}Installing Claude Code via npm...${NC}"
+    sudo npm install -g @anthropic-ai/claude-code
+
+    if command -v claude &> /dev/null; then
+        echo -e "${GREEN}[OK] Claude Code installed successfully!${NC}"
+        claude --version 2>/dev/null || true
+    else
+        echo -e "${RED}[Error] Failed to install Claude Code.${NC}"
+        return 1
+    fi
+}
+
+# --- Update Claude Code ---
+update_claude_code() {
+    echo -e "${YELLOW}>>> Updating Claude Code...${NC}"
+
+    if ! command -v claude &> /dev/null; then
+        echo -e "${YELLOW}Claude Code not installed. Installing...${NC}"
+        install_claude_code
+        return $?
+    fi
+
+    if ! command -v npm &> /dev/null; then
+        echo -e "${RED}[Error] npm not found. Cannot update Claude Code.${NC}"
+        return 1
+    fi
+
+    sudo npm update -g @anthropic-ai/claude-code
+    echo -e "${GREEN}[OK] Claude Code updated!${NC}"
+    claude --version 2>/dev/null || true
+}
+
+# --- Main Execution ---
+# Wrapped in main() to ensure all functions are defined before execution,
+# especially when piped through curl | bash
+
+main() {
+
+if [[ "$1" == "-update" ]]; then
+    echo -e "${CYAN}========================================${NC}"
+    echo -e "${CYAN}   Updating CLIProxy...${NC}"
+    echo -e "${CYAN}========================================${NC}"
+    install_dependencies
+    update_claude_code
+    install_cliproxy
+    echo -e "${GREEN}Update complete!${NC}"
+    exit 0
+fi
+
+# --- Main Menu ---
+
+clear
+echo -e "${CYAN}========================================${NC}"
+echo -e "${CYAN}   CLIProxy Linux Installer Manager${NC}"
+echo -e "${CYAN}========================================${NC}"
+echo ""
+echo "1. Install Dependencies (Git & Go)"
+echo "2. Install / Update CLIProxy Core"
+echo "3. Install Claude Code (Node.js/npm)"
+echo "4. FULL INSTALL (Recommended for first run)"
+echo "5. Exit"
+echo ""
+read -p "Please select your choice (1-5): " choice < /dev/tty
+
+case $choice in
+    1) install_dependencies ;;
+    2) install_cliproxy ;;
+    3) install_claude_code ;;
+    4)
+        install_dependencies
+        install_claude_code
+        install_cliproxy
+        ;;
+    5) exit 0 ;;
+    *) echo "Invalid choice." ;;
+esac
+
+}
+
+main "$@"

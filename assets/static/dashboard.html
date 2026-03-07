@@ -1,0 +1,1703 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CLIProxy Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+    <style>
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --bg:            #fafafa;
+            --bg-card:       #ffffff;
+            --bg-elevated:   #f4f4f5;
+            --bg-hover:      #f0f0f1;
+            --border:        #e4e4e7;
+            --border-subtle: rgba(0,0,0,0.04);
+            --text:          #09090b;
+            --text-2:        #71717a;
+            --text-3:        #a1a1aa;
+            --accent:        #09090b;
+            --accent-fg:     #fafafa;
+            --success:       #16a34a;
+            --success-bg:    rgba(22,163,74,0.08);
+            --warning:       #b45309;
+            --warning-bg:    rgba(180,83,9,0.08);
+            --error:         #dc2626;
+            --error-bg:      rgba(220,38,38,0.08);
+            --radius:        6px;
+            --radius-sm:     4px;
+            --radius-lg:     10px;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root:not([data-theme="light"]) {
+                --bg:            #0a0a0a;
+                --bg-card:       #111111;
+                --bg-elevated:   #1a1a1a;
+                --bg-hover:      #1f1f1f;
+                --border:        rgba(255,255,255,0.07);
+                --border-subtle: rgba(255,255,255,0.03);
+                --text:          #fafafa;
+                --text-2:        #a1a1aa;
+                --text-3:        #52525b;
+                --accent:        #fafafa;
+                --accent-fg:     #09090b;
+                --success:       #22c55e;
+                --success-bg:    rgba(34,197,94,0.1);
+                --warning:       #f59e0b;
+                --warning-bg:    rgba(245,158,11,0.1);
+                --error:         #ef4444;
+                --error-bg:      rgba(239,68,68,0.1);
+            }
+        }
+
+        [data-theme="dark"] {
+            --bg:            #0a0a0a;
+            --bg-card:       #111111;
+            --bg-elevated:   #1a1a1a;
+            --bg-hover:      #1f1f1f;
+            --border:        rgba(255,255,255,0.07);
+            --border-subtle: rgba(255,255,255,0.03);
+            --text:          #fafafa;
+            --text-2:        #a1a1aa;
+            --text-3:        #52525b;
+            --accent:        #fafafa;
+            --accent-fg:     #09090b;
+            --success:       #22c55e;
+            --success-bg:    rgba(34,197,94,0.1);
+            --warning:       #f59e0b;
+            --warning-bg:    rgba(245,158,11,0.1);
+            --error:         #ef4444;
+            --error-bg:      rgba(239,68,68,0.1);
+        }
+
+        [data-theme="light"] {
+            --bg:            #fafafa;
+            --bg-card:       #ffffff;
+            --bg-elevated:   #f4f4f5;
+            --bg-hover:      #f0f0f1;
+            --border:        #e4e4e7;
+            --border-subtle: rgba(0,0,0,0.04);
+            --text:          #09090b;
+            --text-2:        #71717a;
+            --text-3:        #a1a1aa;
+            --accent:        #09090b;
+            --accent-fg:     #fafafa;
+            --success:       #16a34a;
+            --success-bg:    rgba(22,163,74,0.08);
+            --warning:       #b45309;
+            --warning-bg:    rgba(180,83,9,0.08);
+            --error:         #dc2626;
+            --error-bg:      rgba(220,38,38,0.08);
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            font-size: 13.5px;
+            line-height: 1.5;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* ── Sidebar ─────────────────────────────── */
+        .sidebar {
+            width: 220px;
+            background: var(--bg-card);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            position: fixed;
+            height: 100vh;
+            overflow-y: auto;
+            z-index: 100;
+        }
+
+        .sidebar-header {
+            padding: 16px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .logo-icon {
+            width: 28px;
+            height: 28px;
+            background: var(--accent);
+            border-radius: var(--radius-sm);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--accent-fg);
+            flex-shrink: 0;
+        }
+
+        .logo-text    { font-size: 14px; font-weight: 600; letter-spacing: -0.01em; }
+        .logo-version { font-size: 11px; color: var(--text-3); font-family: 'JetBrains Mono', monospace; }
+
+        .sidebar-nav { flex: 1; padding: 8px; }
+
+        .nav-group        { margin-bottom: 4px; }
+        .nav-group-label  {
+            font-size: 10.5px;
+            font-weight: 600;
+            color: var(--text-3);
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            padding: 8px 8px 4px;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 7px 8px;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            color: var(--text-2);
+            font-size: 13px;
+            font-weight: 500;
+            text-decoration: none;
+            transition: background 0.12s, color 0.12s;
+            position: relative;
+            margin-bottom: 1px;
+            user-select: none;
+        }
+
+        .nav-item:hover  { background: var(--bg-hover); color: var(--text); }
+        .nav-item.active { background: var(--bg-elevated); color: var(--text); }
+        .nav-item.active::before {
+            content: '';
+            position: absolute;
+            left: 0; top: 20%; height: 60%; width: 2px;
+            background: var(--text);
+            border-radius: 2px;
+        }
+
+        .n-icon { width: 16px; height: 16px; flex-shrink: 0; opacity: 0.7; }
+        .nav-item.active .n-icon { opacity: 1; }
+
+        .nav-badge {
+            margin-left: auto;
+            background: var(--bg-elevated);
+            color: var(--text-2);
+            font-size: 10.5px;
+            font-weight: 600;
+            padding: 1px 6px;
+            border-radius: 9999px;
+            font-family: 'JetBrains Mono', monospace;
+            border: 1px solid var(--border);
+        }
+
+        .sidebar-footer {
+            padding: 12px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .server-status-pill {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 10px;
+            background: var(--bg-elevated);
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border);
+        }
+
+        .status-dot {
+            width: 6px; height: 6px;
+            border-radius: 50%;
+            background: var(--success);
+            flex-shrink: 0;
+        }
+
+        .status-dot.pulsing { animation: spulse 2s ease-in-out infinite; }
+        @keyframes spulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+        .status-dot.offline  { background: var(--error);   animation: none; }
+        .status-dot.checking { background: var(--warning);  animation: none; }
+
+        .status-label { font-size: 11.5px; font-weight: 500; }
+        .status-port  { font-size: 10.5px; color: var(--text-3); font-family: 'JetBrains Mono', monospace; }
+
+        .theme-toggle-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            width: 100%;
+            padding: 6px 10px;
+            background: transparent;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            color: var(--text-2);
+            font-size: 12px;
+            font-family: inherit;
+            transition: background 0.12s, color 0.12s;
+        }
+
+        .theme-toggle-btn:hover { background: var(--bg-hover); color: var(--text); }
+
+        /* ── Main ────────────────────────────────── */
+        .main {
+            flex: 1;
+            margin-left: 220px;
+            padding: 28px 32px;
+            min-height: 100vh;
+            max-width: calc(100vw - 220px);
+        }
+
+        /* ── Page Header ─────────────────────────── */
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 24px;
+            gap: 16px;
+        }
+
+        .page-header h1 { font-size: 18px; font-weight: 600; letter-spacing: -0.02em; }
+        .page-header p  { font-size: 12.5px; color: var(--text-2); margin-top: 2px; }
+        .header-actions { display: flex; gap: 8px; align-items: center; }
+        .last-updated   { font-size: 11.5px; color: var(--text-3); font-family: 'JetBrains Mono', monospace; }
+
+        /* ── Buttons ─────────────────────────────── */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            font-size: 12.5px;
+            font-weight: 500;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            transition: background 0.12s, opacity 0.12s;
+            border: 1px solid transparent;
+            font-family: inherit;
+            text-decoration: none;
+            white-space: nowrap;
+        }
+
+        .btn-primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+        .btn-primary:hover { opacity: 0.85; }
+        .btn-outline { background: transparent; border-color: var(--border); color: var(--text-2); }
+        .btn-outline:hover { background: var(--bg-hover); color: var(--text); }
+        .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+        /* ── Stats ───────────────────────────────── */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+
+        .stat-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 18px 20px;
+        }
+
+        .stat-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+
+        .stat-name {
+            font-size: 11.5px;
+            color: var(--text-2);
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .stat-icon-wrap {
+            width: 26px; height: 26px;
+            border-radius: var(--radius-sm);
+            background: var(--bg-elevated);
+            border: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-2);
+        }
+
+        .stat-value {
+            font-size: 30px;
+            font-weight: 600;
+            color: var(--text);
+            letter-spacing: -0.03em;
+            font-family: 'JetBrains Mono', monospace;
+            line-height: 1;
+        }
+
+        .stat-sub { font-size: 11.5px; color: var(--text-3); margin-top: 4px; }
+
+        /* ── Card ────────────────────────────────── */
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 14px 20px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .card-title    { font-size: 13.5px; font-weight: 600; }
+        .card-subtitle { font-size: 12px; color: var(--text-2); margin-top: 1px; }
+        .card-body     { padding: 20px; }
+        .card-actions  { display: flex; gap: 8px; align-items: center; }
+
+        /* ── Search ──────────────────────────────── */
+        .search-wrap { position: relative; }
+        .search-wrap .s-icon {
+            position: absolute;
+            left: 8px; top: 50%;
+            transform: translateY(-50%);
+            width: 14px; height: 14px;
+            color: var(--text-3);
+            pointer-events: none;
+        }
+
+        input.search-input {
+            padding: 6px 10px 6px 28px;
+            background: var(--bg-elevated);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            font-size: 12.5px;
+            color: var(--text);
+            font-family: inherit;
+            outline: none;
+            width: 180px;
+            transition: border-color 0.12s;
+        }
+
+        input.search-input:focus { border-color: var(--text-3); }
+        input.search-input::placeholder { color: var(--text-3); }
+
+        /* ── Table ───────────────────────────────── */
+        table { width: 100%; border-collapse: collapse; }
+
+        th {
+            text-align: left;
+            padding: 10px 20px;
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-3);
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            background: var(--bg-elevated);
+            border-bottom: 1px solid var(--border);
+        }
+
+        td {
+            padding: 13px 20px;
+            font-size: 13px;
+            color: var(--text);
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        tr:last-child td          { border-bottom: none; }
+        tbody tr:hover td         { background: var(--bg-elevated); }
+
+        .account-cell { display: flex; align-items: center; gap: 10px; }
+
+        .account-avatar {
+            width: 28px; height: 28px;
+            border-radius: 50%;
+            background: var(--bg-elevated);
+            border: 1px solid var(--border);
+            display: flex; align-items: center; justify-content: center;
+            color: var(--text-2);
+            font-weight: 600;
+            font-size: 11px;
+            flex-shrink: 0;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .account-name  { font-weight: 500; font-size: 13px; }
+        .account-email { font-size: 11.5px; color: var(--text-2); font-family: 'JetBrains Mono', monospace; }
+
+        /* ── Progress ────────────────────────────── */
+        .progress-cell  { display: flex; align-items: center; gap: 8px; }
+        .progress-track { width: 60px; height: 4px; background: var(--bg-elevated); border-radius: 9999px; overflow: hidden; flex-shrink: 0; }
+        .progress-fill  { height: 100%; border-radius: 9999px; transition: width 0.4s ease; }
+        .progress-fill.high   { background: var(--success); }
+        .progress-fill.medium { background: var(--warning); }
+        .progress-fill.low    { background: var(--error); }
+        .progress-text { font-size: 11.5px; font-weight: 500; font-family: 'JetBrains Mono', monospace; min-width: 32px; }
+
+        /* ── Badge ───────────────────────────────── */
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 2px 8px;
+            font-size: 11px;
+            font-weight: 500;
+            border-radius: 9999px;
+        }
+        .badge-success { background: var(--success-bg); color: var(--success); }
+        .badge-error   { background: var(--error-bg);   color: var(--error); }
+        .badge-warning { background: var(--warning-bg); color: var(--warning); }
+        .badge-default { background: var(--bg-elevated); color: var(--text-2); border: 1px solid var(--border); }
+
+        /* ── Table Footer ────────────────────────── */
+        .table-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 20px;
+            border-top: 1px solid var(--border);
+            background: var(--bg-elevated);
+        }
+
+        .table-info { font-size: 11.5px; color: var(--text-3); }
+        .pagination { display: flex; gap: 3px; }
+
+        .page-btn {
+            width: 28px; height: 28px;
+            border: 1px solid var(--border);
+            background: var(--bg-card);
+            border-radius: var(--radius-sm);
+            font-size: 12px;
+            color: var(--text-2);
+            cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            transition: background 0.12s, color 0.12s;
+            font-family: inherit;
+        }
+
+        .page-btn:hover          { background: var(--bg-hover); color: var(--text); }
+        .page-btn.active         { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+        .page-btn:disabled       { opacity: 0.35; cursor: not-allowed; }
+
+        /* ── Quota Grid ──────────────────────────── */
+        .quota-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+            gap: 12px;
+        }
+
+        .quota-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 16px;
+        }
+
+        .quota-card-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 14px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .quota-avatar {
+            width: 28px; height: 28px;
+            border-radius: 50%;
+            background: var(--bg-elevated);
+            border: 1px solid var(--border);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 11px; font-weight: 600; color: var(--text-2);
+            font-family: 'JetBrains Mono', monospace;
+            flex-shrink: 0;
+        }
+
+        .quota-email-name { font-size: 13px; font-weight: 600; }
+        .quota-email-full { font-size: 11px; color: var(--text-3); font-family: 'JetBrains Mono', monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+        .quota-items { display: flex; flex-direction: column; gap: 10px; }
+
+        .quota-row {
+            display: grid;
+            grid-template-columns: 18px 1fr 44px;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .quota-row-icon   { color: var(--text-3); width: 16px; height: 16px; }
+        .quota-row-name   { font-size: 11px; color: var(--text-3); margin-bottom: 3px; }
+        .quota-row-bar    { height: 3px; background: var(--bg-elevated); border-radius: 9999px; overflow: hidden; }
+        .quota-row-fill   { height: 100%; border-radius: 9999px; transition: width 0.4s; }
+        .quota-row-fill.high   { background: var(--success); }
+        .quota-row-fill.medium { background: var(--warning); }
+        .quota-row-fill.low    { background: var(--error); }
+
+        .quota-row-pct { font-size: 11.5px; font-weight: 600; font-family: 'JetBrains Mono', monospace; text-align: right; }
+        .quota-row-pct.high   { color: var(--success); }
+        .quota-row-pct.medium { color: var(--warning); }
+        .quota-row-pct.low    { color: var(--error); }
+        .quota-row-pct.na     { color: var(--text-3); }
+
+        /* ── Settings ────────────────────────────── */
+        .settings-list  { display: flex; flex-direction: column; gap: 2px; }
+        .settings-row   {
+            display: flex; align-items: center;
+            justify-content: space-between;
+            padding: 12px 0;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+        .settings-row:last-child { border-bottom: none; }
+        .settings-key   { font-size: 13px; color: var(--text-2); }
+
+        /* ── Tabs ────────────────────────────────── */
+        .tab-content        { display: none; animation: fadein 0.18s ease; }
+        .tab-content.active { display: block; }
+        @keyframes fadein { from{opacity:0;transform:translateY(4px)} to{opacity:1;transform:translateY(0)} }
+
+        /* ── States ──────────────────────────────── */
+        .loading-state, .empty-state, .error-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 48px 20px;
+            color: var(--text-3);
+            gap: 10px;
+        }
+        .loading-state p, .empty-state p, .error-state p { font-size: 13px; color: var(--text-2); }
+        .loading-state small, .empty-state small, .error-state small { font-size: 11.5px; color: var(--text-3); }
+
+        .spinner {
+            width: 20px; height: 20px;
+            border: 2px solid var(--border);
+            border-top-color: var(--text-2);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to{transform:rotate(360deg)} }
+
+        /* ── Toast ───────────────────────────────── */
+        .toast {
+            position: fixed;
+            bottom: 20px; right: 20px;
+            padding: 10px 14px;
+            background: var(--text);
+            color: var(--bg-card);
+            border-radius: var(--radius);
+            font-size: 12.5px;
+            font-weight: 500;
+            transform: translateY(16px);
+            opacity: 0;
+            transition: all 0.2s ease;
+            z-index: 9999;
+            display: flex; align-items: center; gap: 8px;
+            max-width: 320px;
+            border: 1px solid var(--border);
+            box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+        }
+        .toast.show    { transform: translateY(0); opacity: 1; }
+        .toast.success { background: var(--success-bg); color: var(--success); border-color: var(--success); }
+        .toast.error   { background: var(--error-bg);   color: var(--error);   border-color: var(--error); }
+
+        /* ── Icon button ─────────────────────────── */
+        .btn-icon {
+            display: inline-flex;
+            align-items: center; justify-content: center;
+            width: 28px; height: 28px;
+            border-radius: var(--radius-sm);
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            color: var(--text-3);
+            transition: background 0.12s, color 0.12s;
+        }
+        .btn-icon:hover { background: var(--error-bg); color: var(--error); }
+
+        /* ── Info row ────────────────────────────── */
+        .info-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            color: var(--text-3);
+            margin-top: 20px;
+        }
+
+        .info-row code {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11.5px;
+            background: var(--bg-elevated);
+            padding: 1px 5px;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border);
+        }
+
+        /* ── Responsive ──────────────────────────── */
+        @media (max-width: 1100px) { .stats-grid { grid-template-columns: repeat(2,1fr); } }
+        @media (max-width: 900px) {
+            .sidebar { transform: translateX(-100%); transition: transform 0.2s ease; }
+            .sidebar.open { transform: translateX(0); }
+            .main { margin-left: 0; max-width: 100vw; padding: 20px 16px; }
+            .stats-grid { grid-template-columns: 1fr; }
+        }
+        @media (max-width: 600px) {
+            .page-header { flex-direction: column; }
+            th, td { padding: 10px 12px; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- ── Sidebar ─────────────────────────────────────────── -->
+<aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+        <div class="logo">
+            <div class="logo-icon">
+                <i data-lucide="zap" style="width:14px;height:14px"></i>
+            </div>
+            <div>
+                <div class="logo-text">CLIProxy</div>
+                <div class="logo-version">v2.0</div>
+            </div>
+        </div>
+    </div>
+
+    <nav class="sidebar-nav">
+        <div class="nav-group">
+            <div class="nav-group-label">Overview</div>
+            <a href="#" class="nav-item active" data-tab="dashboard">
+                <i data-lucide="layout-dashboard" class="n-icon"></i>
+                Dashboard
+            </a>
+        </div>
+        <div class="nav-group">
+            <div class="nav-group-label">Management</div>
+            <a href="#" class="nav-item" data-tab="accounts">
+                <i data-lucide="users" class="n-icon"></i>
+                Accounts
+                <span class="nav-badge" id="accountsBadge">0</span>
+            </a>
+            <a href="#" class="nav-item" data-tab="quota">
+                <i data-lucide="gauge" class="n-icon"></i>
+                Quota
+            </a>
+        </div>
+        <div class="nav-group">
+            <div class="nav-group-label">System</div>
+            <a href="#" class="nav-item" data-tab="settings">
+                <i data-lucide="settings" class="n-icon"></i>
+                Settings
+            </a>
+            <a href="https://github.com/imrosyd/cliproxy-installer" target="_blank" class="nav-item">
+                <i data-lucide="book-open" class="n-icon"></i>
+                Docs
+            </a>
+        </div>
+    </nav>
+
+    <div class="sidebar-footer">
+        <div class="server-status-pill">
+            <div class="status-dot checking pulsing" id="serverStatusDot"></div>
+            <div>
+                <div class="status-label" id="serverStatusText">Checking…</div>
+                <div class="status-port">:8317</div>
+            </div>
+        </div>
+        <button class="theme-toggle-btn" onclick="toggleTheme()">
+            <i data-lucide="sun-moon" style="width:13px;height:13px"></i>
+            <span id="themeLabel">Toggle theme</span>
+        </button>
+    </div>
+</aside>
+
+<!-- ── Main ────────────────────────────────────────────── -->
+<main class="main">
+
+    <!-- Dashboard Tab -->
+    <div id="tab-dashboard" class="tab-content active">
+        <div class="page-header">
+            <div>
+                <h1>Dashboard</h1>
+                <p>Proxy server overview</p>
+            </div>
+            <div class="header-actions">
+                <span class="last-updated" id="lastUpdated">—</span>
+                <button class="btn btn-outline" id="refreshBtn" onclick="refreshAll()">
+                    <i data-lucide="refresh-cw" style="width:13px;height:13px"></i>
+                    Refresh
+                </button>
+            </div>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-top">
+                    <span class="stat-name">Accounts</span>
+                    <div class="stat-icon-wrap"><i data-lucide="users" style="width:14px;height:14px"></i></div>
+                </div>
+                <div class="stat-value" id="statAccounts">—</div>
+                <div class="stat-sub">total accounts</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-top">
+                    <span class="stat-name">Available</span>
+                    <div class="stat-icon-wrap"><i data-lucide="shield-check" style="width:14px;height:14px"></i></div>
+                </div>
+                <div class="stat-value" id="statAvailable">—</div>
+                <div class="stat-sub">active accounts</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-top">
+                    <span class="stat-name">Avg Quota</span>
+                    <div class="stat-icon-wrap"><i data-lucide="battery-charging" style="width:14px;height:14px"></i></div>
+                </div>
+                <div class="stat-value" id="statQuota">—</div>
+                <div class="stat-sub">remaining (avg)</div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <div>
+                    <div class="card-title">Recent Accounts</div>
+                    <div class="card-subtitle">Quota snapshot from last fetch</div>
+                </div>
+            </div>
+            <div id="dashboardAccountsPreview">
+                <div class="loading-state"><div class="spinner"></div><p>Loading…</p></div>
+            </div>
+        </div>
+
+        <div class="info-row">
+            <i data-lucide="info" style="width:12px;height:12px"></i>
+            Run <code>python3 ~/.cli-proxy-api/scripts/quota-fetcher.py</code> to refresh quota data.
+        </div>
+    </div>
+
+    <!-- Accounts Tab -->
+    <div id="tab-accounts" class="tab-content">
+        <div class="page-header">
+            <div>
+                <h1>Accounts</h1>
+                <p>Authenticated proxy accounts</p>
+            </div>
+            <div class="header-actions">
+                <button class="btn btn-outline" onclick="loadAccountsData()">
+                    <i data-lucide="refresh-cw" style="width:13px;height:13px"></i>
+                    Refresh
+                </button>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <div>
+                    <div class="card-title">All Accounts</div>
+                    <div class="card-subtitle" id="accountsSubtitle">Loading…</div>
+                </div>
+                <div class="card-actions">
+                    <div class="search-wrap">
+                        <i data-lucide="search" class="s-icon"></i>
+                        <input type="text" class="search-input" placeholder="Search account…"
+                               id="accountSearch" oninput="filterAccounts()">
+                    </div>
+                </div>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Account</th>
+                        <th>Claude</th>
+                        <th>Gemini Pro</th>
+                        <th>Flash</th>
+                        <th>Status</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody id="accountsTable">
+                    <tr><td colspan="6"><div class="loading-state"><div class="spinner"></div><p>Loading…</p></div></td></tr>
+                </tbody>
+            </table>
+            <div class="table-footer">
+                <div class="table-info" id="accountsInfo">—</div>
+                <div class="pagination" id="accountsPagination"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quota Tab -->
+    <div id="tab-quota" class="tab-content">
+        <div class="page-header">
+            <div>
+                <h1>Quota</h1>
+                <p>Remaining quota per account</p>
+            </div>
+            <div class="header-actions">
+                <button class="btn btn-outline" onclick="loadQuotaData()">
+                    <i data-lucide="refresh-cw" style="width:13px;height:13px"></i>
+                    Refresh
+                </button>
+            </div>
+        </div>
+        <div class="quota-grid" id="quotaGrid">
+            <div class="loading-state"><div class="spinner"></div><p>Loading…</p></div>
+        </div>
+    </div>
+
+    <!-- Settings Tab -->
+    <div id="tab-settings" class="tab-content">
+        <div class="page-header">
+            <div>
+                <h1>Settings</h1>
+                <p>Server management & configuration</p>
+            </div>
+        </div>
+
+        <div class="stats-grid" style="margin-bottom:20px;">
+            <div class="stat-card" style="cursor:pointer;" onclick="sysAction('restart')">
+                <div class="stat-top">
+                    <span class="stat-name">Restart Proxy</span>
+                    <div class="stat-icon-wrap" style="background:var(--success-bg);color:var(--success)"><i data-lucide="power" style="width:14px;height:14px"></i></div>
+                </div>
+                <div class="stat-value" style="font-size:18px;">Reboot</div>
+                <div class="stat-sub">Reloads config.yaml</div>
+            </div>
+            <div class="stat-card" style="cursor:pointer;" onclick="sysAction('stop')">
+                <div class="stat-top">
+                    <span class="stat-name">Stop Proxy</span>
+                    <div class="stat-icon-wrap" style="background:var(--error-bg);color:var(--error)"><i data-lucide="square" style="width:14px;height:14px"></i></div>
+                </div>
+                <div class="stat-value" style="font-size:18px;">Shutdown</div>
+                <div class="stat-sub">Kills all backend services</div>
+            </div>
+            <div class="stat-card" style="cursor:pointer;" onclick="openAddProviderModal()">
+                <div class="stat-top">
+                    <span class="stat-name">Add Provider</span>
+                    <div class="stat-icon-wrap" style="background:var(--nav-hover)"><i data-lucide="plus-circle" style="width:14px;height:14px"></i></div>
+                </div>
+                <div class="stat-value" style="font-size:18px;">New Endpoint</div>
+                <div class="stat-sub">Configure in browser</div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <div>
+                    <div class="card-title">Configuration</div>
+                    <div class="card-subtitle">Read from config.yaml</div>
+                </div>
+            </div>
+            <div class="card-body" id="settingsContent">
+                <div class="loading-state"><div class="spinner"></div><p>Loading…</p></div>
+            </div>
+        </div>
+    </div>
+
+</main>
+
+    <!-- Add Provider Modal -->
+    <div id="addProviderModal" class="modal-overlay" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.7); z-index:9999; align-items:center; justify-content:center;">
+        <div class="modal-content" style="background:var(--bg-2); border:1px solid var(--border); border-radius:12px; padding:24px; width:400px; max-width:90%;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+                <h2 style="margin:0; font-size:16px;">Add Custom Provider</h2>
+                <button class="btn-icon" onclick="closeAddProviderModal()">
+                    <i data-lucide="x" style="width:16px;height:16px"></i>
+                </button>
+            </div>
+            <div class="input-group" style="margin-bottom:15px">
+                <label style="display:block; margin-bottom:8px; font-size:12px; color:var(--text-2);">Provider Name</label>
+                <input type="text" id="apmName" class="form-control" placeholder="e.g., myopenai" style="width:100%; padding:10px; background:var(--bg-1); border:1px solid var(--border); border-radius:6px; color:var(--text-1);">
+            </div>
+            <div class="input-group" style="margin-bottom:15px">
+                <label style="display:block; margin-bottom:8px; font-size:12px; color:var(--text-2);">Base URL</label>
+                <input type="text" id="apmUrl" class="form-control" placeholder="e.g., https://api.openai.com/v1" style="width:100%; padding:10px; background:var(--bg-1); border:1px solid var(--border); border-radius:6px; color:var(--text-1);">
+            </div>
+            <div class="input-group" style="margin-bottom:20px">
+                <label style="display:block; margin-bottom:8px; font-size:12px; color:var(--text-2);">API Key</label>
+                <input type="text" id="apmKey" class="form-control" placeholder="sk-..." style="width:100%; padding:10px; background:var(--bg-1); border:1px solid var(--border); border-radius:6px; color:var(--text-1);">
+            </div>
+            <div style="display:flex; justify-content:flex-end; gap:10px;">
+                <button class="btn btn-secondary" onclick="closeAddProviderModal()" style="padding:10px 16px; border-radius:6px; font-weight:500; cursor:pointer;">Cancel</button>
+                <button class="btn btn-primary" onclick="submitAddProvider()" style="padding:10px 16px; border-radius:6px; font-weight:500; cursor:pointer;">Add Provider</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Config Editor Modal -->
+    <div id="configEditorModal" class="modal-overlay" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.7); z-index:9999; align-items:center; justify-content:center;">
+        <div class="modal-content" style="background:var(--bg-card); border:1px solid var(--border); border-radius:12px; padding:24px; width:800px; max-width:90vw;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                <h2 style="margin:0; font-size:16px;">Edit config.yaml</h2>
+                <button class="btn-icon" onclick="closeConfigEditorModal()">
+                    <i data-lucide="x" style="width:16px;height:16px"></i>
+                </button>
+            </div>
+            <p style="color:var(--warning); font-size:13px; margin:0 0 16px 0; display:flex; align-items:center; gap:6px;">
+                <i data-lucide="alert-triangle" style="width:14px;height:14px"></i> Warning: Invalid YAML syntax may prevent the proxy from starting.
+            </p>
+            <textarea id="configEditorTextarea" style="width:100%; height:400px; font-family:monospace; font-size:13px; padding:12px; background:var(--bg-1); color:var(--text-1); border:1px solid var(--border); border-radius:6px; resize:vertical;"></textarea>
+            
+            <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
+                <button class="btn btn-secondary" onclick="closeConfigEditorModal()" style="padding:10px 16px; border-radius:6px; font-weight:500;">Cancel</button>
+                <button class="btn btn-primary" id="saveConfigBtn" onclick="saveConfigEditor()" style="padding:10px 16px; border-radius:6px; font-weight:500;">
+                    <i data-lucide="save" style="width:16px;height:16px;margin-right:6px"></i> Save & Restart
+                </button>
+            </div>
+        </div>
+    </div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ── Config ──────────────────────────────────────────── */
+const API_BASE       = 'http://localhost:8317/v0';
+const MANAGEMENT_KEY = localStorage.getItem('cp_mgmt_key') || 'sk-dummy';
+
+// QUOTA_CACHE_START
+const EMBEDDED_QUOTA_CACHE = null;
+// QUOTA_CACHE_END
+
+/* ── State ───────────────────────────────────────────── */
+let accountsData = [];
+let quotaCache   = EMBEDDED_QUOTA_CACHE || { accounts: {} };
+let currentPage  = 1;
+const PER_PAGE   = 8;
+
+/* ── Theme ───────────────────────────────────────────── */
+function initTheme() {
+    const stored = localStorage.getItem('cp-theme');
+    if (stored) document.documentElement.setAttribute('data-theme', stored);
+    updateThemeLabel();
+}
+
+function toggleTheme() {
+    const curr   = document.documentElement.getAttribute('data-theme');
+    const isDark = curr === 'dark' ||
+        (!curr && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    const next = isDark ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    localStorage.setItem('cp-theme', next);
+    updateThemeLabel();
+}
+
+function updateThemeLabel() {
+    const curr   = document.documentElement.getAttribute('data-theme');
+    const isDark = curr === 'dark' ||
+        (!curr && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    const el = document.getElementById('themeLabel');
+    if (el) el.textContent = isDark ? 'Light mode' : 'Dark mode';
+}
+
+/* ── Navigation ──────────────────────────────────────── */
+function setupNavigation() {
+    document.querySelectorAll('.nav-item[data-tab]').forEach(item => {
+        item.addEventListener('click', e => {
+            e.preventDefault();
+            switchTab(item.dataset.tab);
+        });
+    });
+}
+
+function switchTab(tabName) {
+    document.querySelectorAll('.nav-item[data-tab]').forEach(item => {
+        item.classList.toggle('active', item.dataset.tab === tabName);
+    });
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    const target = document.getElementById('tab-' + tabName);
+    if (target) target.classList.add('active');
+
+    if (tabName === 'accounts') loadAccountsData();
+    else if (tabName === 'quota')    loadQuotaData();
+    else if (tabName === 'settings') loadSettings();
+    else if (tabName === 'dashboard') renderDashboardPreview();
+}
+
+/* ── Server Status ───────────────────────────────────── */
+async function checkServerStatus() {
+    const dot  = document.getElementById('serverStatusDot');
+    const text = document.getElementById('serverStatusText');
+    try {
+        const resp = await fetch('http://localhost:8317/health', {
+            signal: typeof AbortSignal.timeout === 'function'
+                ? AbortSignal.timeout(4000)
+                : undefined
+        });
+        if (resp.ok) {
+            dot.className  = 'status-dot pulsing';
+            text.textContent = 'Online';
+        } else {
+            dot.className  = 'status-dot';
+            dot.style.background = 'var(--warning)';
+            text.textContent = 'Degraded';
+        }
+    } catch {
+        dot.className  = 'status-dot offline';
+        text.textContent = 'Offline';
+    }
+}
+
+/* ── Refresh All ─────────────────────────────────────── */
+async function refreshAll() {
+    const btn = document.getElementById('refreshBtn');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<div class="spinner" style="width:13px;height:13px;border-width:2px"></div>';
+    }
+
+    try {
+        if (EMBEDDED_QUOTA_CACHE) quotaCache = EMBEDDED_QUOTA_CACHE;
+
+        const accResp = await fetch(API_BASE + '/management/auth-files', {
+            headers: { 'X-Management-Key': MANAGEMENT_KEY }
+        });
+
+        if (accResp.ok) {
+            const data = await accResp.json();
+            accountsData = buildAccountsWithQuota(data.files || []);
+            
+            // Look for custom config nodes
+            try {
+                const cfgResp = await fetch(API_BASE + '/management/config', { headers: { 'X-Management-Key': MANAGEMENT_KEY }});
+                if (cfgResp.ok) {
+                    const cfg = await cfgResp.json();
+                    const customs = (cfg['openai-compatibility'] || []).map(p => ({
+                        id: 'custom-' + p.name,
+                        email: p.name + ' (Custom Config)',
+                        type: 'custom',
+                        models: p.models || [],
+                        disabled: false,
+                        unavailable: false,
+                        quota: null
+                    }));
+                    accountsData = accountsData.concat(customs);
+                }
+            } catch (e) {
+                console.warn('Could not fetch custom providers:', e);
+            }
+            
+            document.getElementById('accountsBadge').textContent = accountsData.length;
+            document.getElementById('statAccounts').textContent  = accountsData.length;
+        } else {
+            document.getElementById('statAccounts').textContent = '—';
+        }
+
+        /* Stats depend on accountsData — call AFTER accounts are loaded */
+        updateDashboardStats();
+        renderDashboardPreview();
+
+        document.getElementById('lastUpdated').textContent =
+            new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+    } catch (err) {
+        console.error('refreshAll:', err);
+        /* Show cached data even when server is offline */
+        updateDashboardStats();
+        renderDashboardPreview();
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<i data-lucide="refresh-cw" style="width:13px;height:13px"></i> Refresh';
+            lucide.createIcons();
+        }
+    }
+}
+
+/* ── Build accounts with quota ───────────────────────── */
+function buildAccountsWithQuota(files) {
+    return (files || [])
+        .filter(f => (f.email || f.username))
+        .map(acc => {
+            // Assign a stable email string for display
+            acc.email = acc.email || acc.username;
+            return { ...acc, quota: resolveQuota(acc) };
+        });
+}
+
+function resolveQuota(acc) {
+    let cached = quotaCache.accounts?.[acc.id];
+    if (!cached) {
+        cached = Object.values(quotaCache.accounts || {})
+            .find(item => item.email === acc.email);
+    }
+    return cached?.quota || null;
+}
+
+/* ── Dashboard Stats ─────────────────────────────────── */
+function updateDashboardStats() {
+    const available = accountsData.filter(a => !a.disabled && !a.unavailable).length;
+    document.getElementById('statAvailable').textContent = available;
+
+    let total = 0, count = 0;
+    Object.values(quotaCache.accounts || {}).forEach(acc => {
+        ['claude', 'geminiPro', 'geminiFlash'].forEach(key => {
+            const rem = acc.quota?.[key]?.remaining;
+            if (rem != null) { total += rem; count++; }
+        });
+    });
+
+    const avg = count > 0 ? Math.round((total / count) * 100) : null;
+    document.getElementById('statQuota').textContent = avg !== null ? avg + '%' : '—';
+}
+
+/* ── Dashboard Preview ───────────────────────────────── */
+function renderDashboardPreview() {
+    const container = document.getElementById('dashboardAccountsPreview');
+    if (!container) return;
+
+    /* Use live accountsData if available, else fall back to quota cache */
+    const sourceAccounts = accountsData.length > 0
+        ? accountsData.slice(0, 5)
+        : Object.values(quotaCache.accounts || {}).slice(0, 5).map(d => ({
+              email: d.email,
+              quota: d.quota,
+              id: null
+          }));
+
+    if (sourceAccounts.length === 0) {
+        container.innerHTML = `<div class="empty-state">
+            <i data-lucide="inbox" style="width:28px;height:28px"></i>
+            <p>No accounts found</p>
+            <small>Run cp-login to add accounts</small>
+        </div>`;
+        lucide.createIcons();
+        return;
+    }
+
+    const rows = sourceAccounts.map(acc => {
+        const email = acc.email || '—';
+        const isOfficial = !['antigravity'].includes(acc.type || 'antigravity');
+        const q     = acc.quota;
+        
+        let quotaHtml = '';
+        if (isOfficial) {
+            quotaHtml = '<td colspan="3"><span class="badge badge-success" style="background:var(--success-bg);color:var(--success)">Ready</span></td>';
+        } else {
+            quotaHtml = '<td>' + renderProgress(q?.claude?.remaining) + '</td>' +
+                        '<td>' + renderProgress(q?.geminiPro?.remaining) + '</td>' +
+                        '<td>' + renderProgress(q?.geminiFlash?.remaining) + '</td>';
+        }
+
+        return '<tr>' +
+            '<td><div class="account-cell">' +
+                '<div class="account-avatar">' + escapeHtml(email[0].toUpperCase()) + '</div>' +
+                '<div>' +
+                    '<div class="account-name">' + escapeHtml(email.split('@')[0]) + '</div>' +
+                    '<div class="account-email">' + escapeHtml(email) + '</div>' +
+                '</div>' +
+            '</div></td>' +
+            quotaHtml +
+        '</tr>';
+    }).join('');
+
+    container.innerHTML =
+        '<table>' +
+            '<thead><tr><th>Account</th><th>Claude</th><th>Gemini Pro</th><th>Flash</th></tr></thead>' +
+            '<tbody>' + rows + '</tbody>' +
+        '</table>';
+    lucide.createIcons();
+}
+
+/* ── Accounts Tab ────────────────────────────────────── */
+async function loadAccountsData() {
+    const tbody = document.getElementById('accountsTable');
+    if (!tbody) return;
+
+    if (accountsData.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6"><div class="loading-state"><div class="spinner"></div><p>Loading…</p></div></td></tr>';
+        await refreshAll();
+    }
+    
+    currentPage = 1;
+    renderAccountsTable(accountsData);
+}
+
+function renderAccountsTable(accounts) {
+    const tbody    = document.getElementById('accountsTable');
+    const subtitle = document.getElementById('accountsSubtitle');
+    const infoEl   = document.getElementById('accountsInfo');
+    if (!tbody) return;
+
+    if (subtitle) subtitle.textContent = accounts.length + ' account' + (accounts.length !== 1 ? 's' : '');
+
+    if (accounts.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6"><div class="empty-state">' +
+            '<i data-lucide="inbox" style="width:28px;height:28px"></i>' +
+            '<p>No accounts found</p>' +
+            '<small>Run cp-login to add accounts</small>' +
+            '</div></td></tr>';
+        lucide.createIcons();
+        if (infoEl) infoEl.textContent = 'No accounts';
+        return;
+    }
+
+    const start     = (currentPage - 1) * PER_PAGE;
+    const paginated = accounts.slice(start, start + PER_PAGE);
+
+    tbody.innerHTML = paginated.map(acc => {
+        const initial  = escapeHtml((acc.email || '?')[0].toUpperCase());
+        const isActive = !acc.disabled && !acc.unavailable;
+        const isOfficial = !['antigravity'].includes(acc.type || 'antigravity');
+        const q        = acc.quota;
+        const statusBadge = isActive
+            ? '<span class="badge badge-success"><i data-lucide="check" style="width:10px;height:10px"></i> Active</span>'
+            : '<span class="badge badge-error"><i data-lucide="x" style="width:10px;height:10px"></i> Error</span>';
+            
+        let quotaHtml = '';
+        if (isOfficial) {
+            let modelTags = '';
+            if (acc.models && acc.models.length > 0) {
+                modelTags = acc.models.slice(0, 3).map(m => 
+                    '<span class="badge badge-default" style="font-size:10px;margin-right:2px;margin-bottom:2px;padding:1px 4px;font-family:JetBrains Mono,monospace;">' + escapeHtml(m.name) + '</span>'
+                ).join('');
+                if (acc.models.length > 3) modelTags += '<span style="font-size:10px;color:var(--text-3);">+' + (acc.models.length - 3) + '</span>';
+            } else {
+                modelTags = '<span class="badge badge-default" style="font-family:JetBrains Mono,monospace;font-size:11px;">' + escapeHtml(acc.type || 'external') + '</span>';
+            }
+            quotaHtml = '<td colspan="3">' + modelTags + '</td>';
+        } else {
+            quotaHtml = '<td>' + renderProgress(q?.claude?.remaining) + '</td>' +
+                        '<td>' + renderProgress(q?.geminiPro?.remaining) + '</td>' +
+                        '<td>' + renderProgress(q?.geminiFlash?.remaining) + '</td>';
+        }
+
+        return '<tr>' +
+            '<td><div class="account-cell">' +
+                '<div class="account-avatar">' + initial + '</div>' +
+                '<div>' +
+                    '<div class="account-name">' + escapeHtml(acc.email.split('@')[0]) + '</div>' +
+                    '<div class="account-email">' + escapeHtml(acc.email) + '</div>' +
+                '</div>' +
+            '</div></td>' +
+            quotaHtml +
+            '<td>' + statusBadge + '</td>' +
+            '<td>' +
+                '<button class="btn-icon" title="Delete account" ' +
+                        'onclick="deleteAccount(\'' + escapeHtml(acc.id) + '\')">' +
+                    '<i data-lucide="trash-2" style="width:14px;height:14px"></i>' +
+                '</button>' +
+            '</td>' +
+        '</tr>';
+    }).join('');
+
+    lucide.createIcons();
+
+    const end = Math.min(start + PER_PAGE, accounts.length);
+    if (infoEl) infoEl.textContent = 'Showing ' + (start + 1) + '–' + end + ' of ' + accounts.length;
+    renderPagination(accounts.length, 'accountsPagination');
+}
+
+function filterAccounts() {
+    const q        = document.getElementById('accountSearch').value.toLowerCase();
+    const filtered = accountsData.filter(a => a.email?.toLowerCase().includes(q));
+    currentPage = 1;
+    renderAccountsTable(filtered);
+}
+
+/* ── Quota Tab ───────────────────────────────────────── */
+function loadQuotaData() {
+    const grid    = document.getElementById('quotaGrid');
+    if (!grid) return;
+
+    const entries = Object.entries(quotaCache.accounts || {});
+
+    if (entries.length === 0) {
+        grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1">' +
+            '<i data-lucide="gauge" style="width:28px;height:28px"></i>' +
+            '<p>No quota data</p>' +
+            '<small>Run quota-fetcher.py to populate</small>' +
+        '</div>';
+        lucide.createIcons();
+        return;
+    }
+
+    grid.innerHTML = entries.map(function(entry) {
+        var id   = entry[0];
+        var data = entry[1];
+        var email   = data.email || id.replace('antigravity-', '').replace('.json', '');
+        var initial = escapeHtml(email[0].toUpperCase());
+        var q       = data.quota || {};
+
+        var isOfficial = !['antigravity'].includes(data.type || 'antigravity');
+        var rows = '';
+
+        if (isOfficial) {
+            // Find account in accountsData to get model list
+            const acc = accountsData.find(a => a.id === 'custom-' + data.name || a.email === data.email);
+            if (acc && acc.models && acc.models.length > 0) {
+                rows = acc.models.map(m => {
+                    return '<div class="quota-row">' +
+                        '<i data-lucide="sparkles" class="quota-row-icon"></i>' +
+                        '<div>' +
+                            '<div class="quota-row-name">' + escapeHtml(m.name) + '</div>' +
+                            '<div class="quota-row-bar">' +
+                                '<div class="quota-row-fill high" style="width:100%"></div>' +
+                            '</div>' +
+                        '</div>' +
+                        '<div class="quota-row-pct high">Active</div>' +
+                    '</div>';
+                }).join('');
+            } else {
+                rows = '<div class="quota-row">' +
+                    '<i data-lucide="check-circle" class="quota-row-icon" style="color:var(--success)"></i>' +
+                    '<div>' +
+                        '<div class="quota-row-name">Status: Available</div>' +
+                        '<div class="quota-row-bar">' +
+                            '<div class="quota-row-fill high" style="width:100%"></div>' +
+                        '</div>' +
+                    '</div>' +
+                    '<div class="quota-row-pct high">Ready</div>' +
+                '</div>' +
+                '<div class="quota-row">' +
+                    '<i data-lucide="server" class="quota-row-icon"></i>' +
+                    '<div>' +
+                        '<div class="quota-row-name">Architecture Provider</div>' +
+                        '<div class="quota-row-bar">' +
+                            '<div class="quota-row-fill high" style="width:100%"></div>' +
+                        '</div>' +
+                    '</div>' +
+                    '<div class="quota-row-pct" style="color:var(--text-1);font-family:JetBrains Mono,monospace;font-size:11px;">' + escapeHtml((data.type || 'external').toUpperCase()) + '</div>' +
+                '</div>';
+            }
+        } else {
+            var items = [
+                { name: 'Claude',     icon: 'brain',    val: q.claude?.remaining },
+                { name: 'Gemini Pro', icon: 'sparkles', val: q.geminiPro?.remaining },
+                { name: 'Flash',      icon: 'zap',      val: q.geminiFlash?.remaining },
+                { name: 'Image',      icon: 'image',    val: q.geminiImage?.remaining },
+            ];
+
+            rows = items.map(function(item) {
+                var pct = item.val != null ? Math.round(item.val * 100) : null;
+                var cls = pct !== null ? (pct >= 50 ? 'high' : pct >= 20 ? 'medium' : 'low') : 'na';
+                return '<div class="quota-row">' +
+                    '<i data-lucide="' + item.icon + '" class="quota-row-icon"></i>' +
+                    '<div>' +
+                        '<div class="quota-row-name">' + escapeHtml(item.name) + '</div>' +
+                        '<div class="quota-row-bar">' +
+                            '<div class="quota-row-fill ' + (cls === 'na' ? '' : cls) + '" style="width:' + (pct || 0) + '%"></div>' +
+                        '</div>' +
+                    '</div>' +
+                    '<div class="quota-row-pct ' + cls + '">' + (pct !== null ? pct + '%' : 'N/A') + '</div>' +
+                '</div>';
+            }).join('');
+        }
+
+        var subName = email.includes('@') ? email : (data.type || 'external').toUpperCase();
+
+        return '<div class="quota-card">' +
+            '<div class="quota-card-header">' +
+                '<div class="quota-avatar">' + initial + '</div>' +
+                '<div>' +
+                    '<div class="quota-email-name">' + escapeHtml(email.split('@')[0]) + '</div>' +
+                    '<div class="quota-email-full">' + escapeHtml(subName) + '</div>' +
+                '</div>' +
+            '</div>' +
+            '<div class="quota-items">' + rows + '</div>' +
+        '</div>';
+    }).join('');
+
+    lucide.createIcons();
+}
+
+/* ── Settings Tab ────────────────────────────────────── */
+async function loadSettings() {
+    const container = document.getElementById('settingsContent');
+    if (!container) return;
+    container.innerHTML = '<div class="loading-state"><div class="spinner"></div><p>Loading…</p></div>';
+
+    try {
+        const resp = await fetch(API_BASE + '/management/config', {
+            headers: { 'X-Management-Key': MANAGEMENT_KEY }
+        });
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        const cfg = await resp.json();
+
+        const rows = [
+            { key: 'Debug Mode',               val: cfg.debug },
+            { key: 'TLS',                      val: cfg.tls?.enable },
+            { key: 'Switch on Quota Exceeded', val: cfg['quota-exceeded']?.['switch-project'] },
+            { key: 'API Keys',                 val: (cfg['api-keys'] || []).length + ' configured', raw: true },
+            { key: 'Management Key',           val: cfg['management-key'] ? '••••••••' : 'Not set', raw: true },
+        ].map(function(r) {
+            const display = r.raw
+                ? '<span class="badge badge-default">' + escapeHtml(String(r.val)) + '</span>'
+                : (r.val
+                    ? '<span class="badge badge-success">Enabled</span>'
+                    : '<span class="badge badge-default">Disabled</span>');
+            return '<div class="settings-row"><span class="settings-key">' + r.key + '</span>' + display + '</div>';
+        }).join('');
+
+        const actionsHtml = `
+            <div class="settings-card" style="margin-top: 24px; padding: 20px; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--bg-card);">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <h3 style="margin: 0 0 4px 0; font-size: 1rem; color: var(--text-1);">Raw Configuration</h3>
+                        <p style="margin: 0; font-size: 0.875rem; color: var(--text-3);">Directly view and edit your config.yaml file</p>
+                    </div>
+                    <button class="btn btn-primary" onclick="openConfigEditorModal()" style="display:flex; align-items:center;">
+                        <i data-lucide="edit-3" style="width:16px;height:16px;margin-right:6px"></i> Edit Config
+                    </button>
+                </div>
+            </div>
+        `;
+
+        container.innerHTML = '<div class="settings-list">' + rows + '</div>' + actionsHtml;
+        lucide.createIcons();
+
+    } catch (err) {
+        console.error('loadSettings:', err);
+        container.innerHTML = '<div class="error-state">' +
+            '<i data-lucide="alert-circle" style="width:24px;height:24px"></i>' +
+            '<p>Failed to load settings</p>' +
+            '<small>' + escapeHtml(err.message) + '</small>' +
+        '</div>';
+        lucide.createIcons();
+    }
+}
+
+/* ── Config Editor ───────────────────────────────────── */
+async function openConfigEditorModal() {
+    const modal = document.getElementById('configEditorModal');
+    const textarea = document.getElementById('configEditorTextarea');
+    
+    textarea.value = "Loading...";
+    textarea.disabled = true;
+    modal.style.display = 'flex';
+    lucide.createIcons();
+    
+    try {
+        const resp = await fetch('http://localhost:8317/api/system/raw-config');
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        const data = await resp.json();
+        
+        textarea.value = data.yaml || '';
+        textarea.disabled = false;
+    } catch (e) {
+        textarea.value = "Error loading config: " + e.message;
+    }
+}
+
+function closeConfigEditorModal() {
+    document.getElementById('configEditorModal').style.display = 'none';
+}
+
+async function saveConfigEditor() {
+    if(!confirm("Are you sure? Saving malformed YAML could break the proxy!")) return;
+    
+    const textarea = document.getElementById('configEditorTextarea');
+    const btn = document.getElementById('saveConfigBtn');
+    const originalText = btn.innerHTML;
+    
+    btn.disabled = true;
+    btn.innerHTML = '<div class="spinner" style="width:14px;height:14px;border-width:2px;margin-right:6px"></div> Saving...';
+    
+    try {
+        const resp = await fetch('http://localhost:8317/api/system/raw-config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ yaml: textarea.value })
+        });
+        
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        
+        showToast('Configuration saved and server restarting!', 'success');
+        closeConfigEditorModal();
+        setTimeout(() => refreshAll(), 2000);
+    } catch (e) {
+        showToast('Failed to save config: ' + e.message, 'error');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+    }
+}
+
+/* ── Pagination ──────────────────────────────────────── */
+function renderPagination(total, containerId) {
+    const pages     = Math.ceil(total / PER_PAGE);
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    if (pages <= 1) { container.innerHTML = ''; return; }
+
+    const prev = '<button class="page-btn" onclick="goToPage(' + (currentPage - 1) + ')" ' +
+        (currentPage === 1 ? 'disabled' : '') + '>' +
+        '<i data-lucide="chevron-left" style="width:14px;height:14px"></i></button>';
+
+    const nums = Array.from({ length: Math.min(pages, 7) }, function(_, i) {
+        const p = i + 1;
+        return '<button class="page-btn ' + (p === currentPage ? 'active' : '') + '" ' +
+            'onclick="goToPage(' + p + ')">' + p + '</button>';
+    }).join('');
+
+    const next = '<button class="page-btn" onclick="goToPage(' + (currentPage + 1) + ')" ' +
+        (currentPage === pages ? 'disabled' : '') + '>' +
+        '<i data-lucide="chevron-right" style="width:14px;height:14px"></i></button>';
+
+    container.innerHTML = prev + nums + next;
+    lucide.createIcons();
+}
+
+function goToPage(page) {
+    const pages = Math.ceil(accountsData.length / PER_PAGE);
+    if (page < 1 || page > pages) return;
+    currentPage = page;
+    renderAccountsTable(accountsData);
+}
+
+/* ── Delete Account ──────────────────────────────────── */
+async function deleteAccount(id) {
+    if (!confirm('Delete account "' + id + '"? This cannot be undone.')) return;
+    try {
+        const r = await fetch(API_BASE + '/management/auth-files/' + encodeURIComponent(id), {
+            method: 'DELETE',
+            headers: { 'X-Management-Key': MANAGEMENT_KEY }
+        });
+        if (r.ok) {
+            showToast('Account deleted', 'success');
+            loadAccountsData();
+        } else {
+            throw new Error('HTTP ' + r.status);
+        }
+    } catch (err) {
+        showToast('Delete failed: ' + err.message, 'error');
+    }
+}
+
+/* ── Add Provider Modal ──────────────────────────────── */
+function openAddProviderModal() {
+    document.getElementById('addProviderModal').style.display = 'flex';
+}
+
+function closeAddProviderModal() {
+    document.getElementById('addProviderModal').style.display = 'none';
+}
+
+async function submitAddProvider() {
+    const name = document.getElementById('apmName').value.trim();
+    const url = document.getElementById('apmUrl').value.trim();
+    const key = document.getElementById('apmKey').value.trim();
+    
+    if (!name || !url || !key) {
+        showToast('All fields are required', 'error');
+        return;
+    }
+    
+    try {
+        const btn = document.querySelector('#addProviderModal .btn-primary');
+        btn.textContent = 'Adding...';
+        btn.disabled = true;
+        
+        const r = await fetch('/api/system/add-provider', {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json',
+                'X-Management-Key': MANAGEMENT_KEY 
+            },
+            body: JSON.stringify({ name: name, base_url: url, api_key: key })
+        });
+        
+        if (r.ok) {
+            showToast('Provider added! Reboot proxy to apply.', 'success');
+            closeAddProviderModal();
+            // Clear fields visually
+            document.getElementById('apmName').value = '';
+            document.getElementById('apmUrl').value = '';
+            document.getElementById('apmKey').value = '';
+            setTimeout(() => window.scrollTo(0, 0), 100);
+        } else {
+            const errBody = await r.json().catch(() => ({}));
+            throw new Error(errBody.error || errBody.message || 'HTTP ' + r.status);
+        }
+    } catch (err) {
+        showToast('Adding failed: ' + err.message, 'error');
+    } finally {
+        const btn = document.querySelector('#addProviderModal .btn-primary');
+        btn.textContent = 'Add Provider';
+        btn.disabled = false;
+    }
+}
+
+/* ── System Actions ──────────────────────────────────── */
+async function sysAction(action) {
+    if (!confirm('Are you sure you want to ' + action + ' the proxy server?')) return;
+    try {
+        const r = await fetch('/api/system/' + action, {
+            method: 'POST',
+            headers: { 'X-Management-Key': MANAGEMENT_KEY }
+        });
+        if (r.ok) {
+            showToast('Server ' + action + ' signal sent', 'success');
+            setTimeout(() => location.reload(), 2000);
+        } else {
+            throw new Error('HTTP ' + r.status);
+        }
+    } catch (err) {
+        showToast('System action failed: ' + err.message, 'error');
+    }
+}
+
+/* ── Helpers ─────────────────────────────────────────── */
+function renderProgress(val) {
+    if (val == null) {
+        return '<span style="font-size:11.5px;color:var(--text-3);font-family:JetBrains Mono,monospace">N/A</span>';
+    }
+    const pct = Math.round(val * 100);
+    const cls = pct >= 50 ? 'high' : pct >= 20 ? 'medium' : 'low';
+    return '<div class="progress-cell">' +
+        '<div class="progress-track">' +
+            '<div class="progress-fill ' + cls + '" style="width:' + pct + '%"></div>' +
+        '</div>' +
+        '<span class="progress-text">' + pct + '%</span>' +
+    '</div>';
+}
+
+function escapeHtml(str) {
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function showToast(msg, type) {
+    type = type || 'info';
+    const t    = document.getElementById('toast');
+    const icon = type === 'success' ? 'check-circle' : 'alert-circle';
+    t.innerHTML = '<i data-lucide="' + icon + '" style="width:14px;height:14px"></i> ' + escapeHtml(msg);
+    t.className = 'toast ' + type + ' show';
+    lucide.createIcons();
+    setTimeout(function() { t.classList.remove('show'); }, 3500);
+}
+
+/* ── Init ────────────────────────────────────────────── */
+document.addEventListener('DOMContentLoaded', function() {
+    lucide.createIcons();
+    initTheme();
+    setupNavigation();
+    checkServerStatus();
+    setInterval(checkServerStatus, 15000);
+    refreshAll();
+    setInterval(refreshAll, 60000);
+});
+</script>
+</body>
+</html>
