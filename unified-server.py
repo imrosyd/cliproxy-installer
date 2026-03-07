@@ -29,6 +29,15 @@ STATIC_DIR = os.path.join(CLI_PROXY_DIR, "static")
 BIN_DIR = os.path.join(HOME, "bin")
 CLIPROXY_PATH = os.path.join(BIN_DIR, "cliproxyapi-plus")
 CONFIG_PATH = os.path.join(CLI_PROXY_DIR, "config.yaml")
+LOGIN_PROVIDERS = {
+    'antigravity': '-antigravity-login',
+    'github-copilot': '-github-copilot-login',
+    'gemini-cli': '-login',
+    'codex': '-codex-login',
+    'claude': '-claude-login',
+    'qwen': '-qwen-login',
+    'iflow': '-iflow-login',
+}
 
 cliproxy_process = None
 _temp_config = None
@@ -80,6 +89,26 @@ def stop_cliproxy():
     if _temp_config and os.path.exists(_temp_config.name):
         os.unlink(_temp_config.name)
         _temp_config = None
+
+
+def launch_provider_login(provider):
+    """Launch provider login using the installed CLIProxy binary."""
+    login_flag = LOGIN_PROVIDERS.get(provider)
+    if not login_flag:
+        raise ValueError("Unsupported provider")
+    if not os.path.exists(CLIPROXY_PATH):
+        raise FileNotFoundError(f"Binary not found: {CLIPROXY_PATH}")
+    if not os.path.exists(CONFIG_PATH):
+        raise FileNotFoundError(f"Config not found: {CONFIG_PATH}")
+
+    process = subprocess.Popen(
+        [CLIPROXY_PATH, '--config', CONFIG_PATH, login_flag],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        stdin=subprocess.DEVNULL,
+        start_new_session=True,
+    )
+    return process.pid
 
 class UnifiedHandler(http.server.SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
@@ -171,6 +200,41 @@ class UnifiedHandler(http.server.SimpleHTTPRequestHandler):
             pid = cliproxy_process.pid if cliproxy_process else None
             out = f'{{"status":"{status}", "pid":{pid or "null"}}}'
             self.wfile.write(out.encode('utf-8'))
+        elif self.path == '/api/system/login-providers' and method == 'GET':
+            providers = [
+                {"id": "antigravity", "label": "Antigravity (Claude/Gemini)"},
+                {"id": "github-copilot", "label": "GitHub Copilot"},
+                {"id": "gemini-cli", "label": "Gemini CLI"},
+                {"id": "codex", "label": "Codex"},
+                {"id": "claude", "label": "Claude"},
+                {"id": "qwen", "label": "Qwen"},
+                {"id": "iflow", "label": "iFlow"},
+            ]
+            self.wfile.write(json.dumps({"providers": providers}).encode('utf-8'))
+        elif self.path == '/api/system/login' and method == 'POST':
+            try:
+                content_length = int(self.headers.get('Content-Length', 0))
+                post_data = self.rfile.read(content_length)
+                data = json.loads(post_data.decode('utf-8'))
+
+                provider = str(data.get('provider', '')).strip()
+                if not provider:
+                    self.send_error(400, "Missing provider")
+                    return
+
+                pid = launch_provider_login(provider)
+                self.wfile.write(json.dumps({
+                    "status": "started",
+                    "provider": provider,
+                    "pid": pid,
+                    "message": "Login flow started. Finish authentication in your browser, then refresh Accounts. This login is shared with the CLI on this machine."
+                }).encode('utf-8'))
+            except ValueError as e:
+                self.send_error(400, str(e))
+            except FileNotFoundError as e:
+                self.send_error(404, str(e))
+            except Exception as e:
+                self.send_error(500, str(e))
         elif self.path == '/api/system/add-provider' and method == 'POST':
             try:
                 content_length = int(self.headers.get('Content-Length', 0))

@@ -211,7 +211,7 @@ install_cliproxy() {
         cp "$UNIFIED_SRC" "$SCRIPTS_DIR/unified-server.py"
         echo -e "${GREEN}[OK] Unified server installed from local assets${NC}"
     else
-        if curl -fsSL "https://raw.githubusercontent.com/khmuhtadin/cliproxy-installer/main/unified-server.py" -o "$SCRIPTS_DIR/unified-server.py" 2>/dev/null; then
+        if curl -fsSL "https://raw.githubusercontent.com/imrosyd/cliproxy-installer/main/unified-server.py" -o "$SCRIPTS_DIR/unified-server.py" 2>/dev/null; then
             echo -e "${GREEN}[OK] Unified server downloaded from GitHub${NC}"
         else
             echo -e "${YELLOW}[!] Could not install unified server${NC}"
@@ -227,7 +227,7 @@ install_cliproxy() {
         echo -e "${GREEN}[OK] cp-db installed from local assets${NC}"
     else
         # Fallback: try to download from GitHub
-        if curl -fsSL "https://raw.githubusercontent.com/khmuhtadin/cliproxy-installer/main/assets/scripts/cp-db.sh" -o "/tmp/cp-db" 2>/dev/null; then
+        if curl -fsSL "https://raw.githubusercontent.com/imrosyd/cliproxy-installer/main/assets/scripts/cp-db.sh" -o "/tmp/cp-db" 2>/dev/null; then
             sudo mv /tmp/cp-db /usr/local/bin/cp-db
             sudo chmod +x /usr/local/bin/cp-db
             echo -e "${GREEN}[OK] cp-db downloaded from GitHub${NC}"

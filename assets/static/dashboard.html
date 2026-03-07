@@ -801,6 +801,10 @@
                 <p>Authenticated proxy accounts</p>
             </div>
             <div class="header-actions">
+                <button class="btn btn-primary" onclick="openLoginAccountModal()">
+                    <i data-lucide="log-in" style="width:13px;height:13px"></i>
+                    Login Account
+                </button>
                 <button class="btn btn-outline" onclick="loadAccountsData()">
                     <i data-lucide="refresh-cw" style="width:13px;height:13px"></i>
                     Refresh
@@ -960,6 +964,32 @@
                 <button class="btn btn-secondary" onclick="closeConfigEditorModal()" style="padding:10px 16px; border-radius:6px; font-weight:500;">Cancel</button>
                 <button class="btn btn-primary" id="saveConfigBtn" onclick="saveConfigEditor()" style="padding:10px 16px; border-radius:6px; font-weight:500;">
                     <i data-lucide="save" style="width:16px;height:16px;margin-right:6px"></i> Save & Restart
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="loginAccountModal" class="modal-overlay" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.7); z-index:9999; align-items:center; justify-content:center;">
+        <div class="modal-content" style="background:var(--bg-card); border:1px solid var(--border); border-radius:12px; padding:24px; width:420px; max-width:90vw;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                <h2 style="margin:0; font-size:16px;">Login Account</h2>
+                <button class="btn-icon" onclick="closeLoginAccountModal()">
+                    <i data-lucide="x" style="width:16px;height:16px"></i>
+                </button>
+            </div>
+            <p style="font-size:13px; color:var(--text-2); margin:0 0 16px 0;">
+                Start the same local login flow as <code>cp-login</code>. After login completes, refresh Accounts to see the new shared account in both dashboard and CLI.
+            </p>
+            <div class="input-group" style="margin-bottom:20px">
+                <label style="display:block; margin-bottom:8px; font-size:12px; color:var(--text-2);">Provider</label>
+                <select id="loginProviderSelect" style="width:100%; padding:10px; background:var(--bg-card); border:1px solid var(--border); border-radius:6px; color:var(--text);">
+                    <option value="">Select provider…</option>
+                </select>
+            </div>
+            <div style="display:flex; justify-content:flex-end; gap:10px;">
+                <button class="btn btn-secondary" onclick="closeLoginAccountModal()" style="padding:10px 16px; border-radius:6px; font-weight:500;">Cancel</button>
+                <button class="btn btn-primary" id="loginAccountBtn" onclick="submitLoginAccount()" style="padding:10px 16px; border-radius:6px; font-weight:500;">
+                    <i data-lucide="log-in" style="width:16px;height:16px;margin-right:6px"></i> Start Login
                 </button>
             </div>
         </div>
@@ -1242,7 +1272,7 @@ function renderAccountsTable(accounts) {
         tbody.innerHTML = '<tr><td colspan="6"><div class="empty-state">' +
             '<i data-lucide="inbox" style="width:28px;height:28px"></i>' +
             '<p>No accounts found</p>' +
-            '<small>Run cp-login to add accounts</small>' +
+            '<small>Use Login Account or run cp-login to add accounts</small>' +
             '</div></td></tr>';
         lucide.createIcons();
         if (infoEl) infoEl.textContent = 'No accounts';
@@ -1290,9 +1320,9 @@ function renderAccountsTable(accounts) {
             quotaHtml +
             '<td>' + statusBadge + '</td>' +
             '<td>' +
-                '<button class="btn-icon" title="Delete account" ' +
-                        'onclick="deleteAccount(\'' + escapeHtml(acc.id) + '\')">' +
-                    '<i data-lucide="trash-2" style="width:14px;height:14px"></i>' +
+                '<button class="btn-icon" title="Logout account" ' +
+                        'onclick="logoutAccount(' + JSON.stringify(String(acc.id || '')) + ', ' + JSON.stringify(String(acc.email || acc.id || 'this account')) + ')\">' +
+                    '<i data-lucide="log-out" style="width:14px;height:14px"></i>' +
                 '</button>' +
             '</td>' +
         '</tr>';
@@ -1562,22 +1592,112 @@ function goToPage(page) {
     renderAccountsTable(accountsData);
 }
 
-/* ── Delete Account ──────────────────────────────────── */
-async function deleteAccount(id) {
-    if (!confirm('Delete account "' + id + '"? This cannot be undone.')) return;
+/* ── Account Actions ─────────────────────────────────── */
+async function logoutAccount(id, label) {
+    const name = label || id;
+    const confirmed = confirm(
+        'Logout account "' + name + '"? This removes the shared auth file, so the account will also be signed out from the CLI on this machine.'
+    );
+    if (!confirmed) return;
+    await deleteAccount(id, 'logout');
+}
+
+async function deleteAccount(id, actionLabel) {
+    const verb = actionLabel || 'delete';
+    if (!id) {
+        showToast('Missing account id', 'error');
+        return;
+    }
     try {
         const r = await fetch(API_BASE + '/management/auth-files/' + encodeURIComponent(id), {
             method: 'DELETE',
             headers: { 'X-Management-Key': MANAGEMENT_KEY }
         });
         if (r.ok) {
-            showToast('Account deleted', 'success');
-            loadAccountsData();
+            showToast(verb === 'logout' ? 'Account logged out' : 'Account deleted', 'success');
+            await refreshAll();
+            if (document.getElementById('tab-accounts')?.classList.contains('active')) {
+                renderAccountsTable(accountsData);
+            }
         } else {
             throw new Error('HTTP ' + r.status);
         }
     } catch (err) {
-        showToast('Delete failed: ' + err.message, 'error');
+        showToast((verb === 'logout' ? 'Logout failed: ' : 'Delete failed: ') + err.message, 'error');
+    }
+}
+
+/* ── Login Account Modal ─────────────────────────────── */
+async function openLoginAccountModal() {
+    const modal = document.getElementById('loginAccountModal');
+    const select = document.getElementById('loginProviderSelect');
+    if (!modal || !select) return;
+
+    modal.style.display = 'flex';
+    select.disabled = true;
+    select.innerHTML = '<option value="">Loading providers…</option>';
+    lucide.createIcons();
+
+    try {
+        const resp = await fetch('/api/system/login-providers', {
+            headers: { 'X-Management-Key': MANAGEMENT_KEY }
+        });
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        const data = await resp.json();
+        const providers = Array.isArray(data.providers) ? data.providers : [];
+        select.innerHTML = '<option value="">Select provider…</option>' + providers.map(function(provider) {
+            return '<option value="' + escapeHtml(provider.id) + '">' + escapeHtml(provider.label) + '</option>';
+        }).join('');
+        select.disabled = false;
+    } catch (err) {
+        select.innerHTML = '<option value="">Failed to load providers</option>';
+        showToast('Failed to load providers: ' + err.message, 'error');
+    }
+}
+
+function closeLoginAccountModal() {
+    const modal = document.getElementById('loginAccountModal');
+    const select = document.getElementById('loginProviderSelect');
+    if (modal) modal.style.display = 'none';
+    if (select) select.value = '';
+}
+
+async function submitLoginAccount() {
+    const select = document.getElementById('loginProviderSelect');
+    const btn = document.getElementById('loginAccountBtn');
+    if (!select || !btn) return;
+
+    const provider = select.value.trim();
+    if (!provider) {
+        showToast('Select a provider first', 'error');
+        return;
+    }
+
+    const originalText = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<div class="spinner" style="width:14px;height:14px;border-width:2px;margin-right:6px"></div> Starting...';
+
+    try {
+        const resp = await fetch('/api/system/login', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Management-Key': MANAGEMENT_KEY
+            },
+            body: JSON.stringify({ provider: provider })
+        });
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+
+        const data = await resp.json();
+        showToast(data.message || 'Login flow started', 'success');
+        closeLoginAccountModal();
+        setTimeout(function() { refreshAll(); }, 2000);
+    } catch (err) {
+        showToast('Login failed: ' + err.message, 'error');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+        lucide.createIcons();
     }
 }
 

@@ -111,7 +111,7 @@ function Install-CLIProxy {
     } else {
         # Fallback: download from GitHub
         try {
-            Invoke-WebRequest -Uri "https://raw.githubusercontent.com/khmuhtadin/cliproxy-installer/main/assets/static/dashboard.html" -OutFile "$StaticDir\dashboard.html" -ErrorAction Stop
+            Invoke-WebRequest -Uri "https://raw.githubusercontent.com/imrosyd/cliproxy-installer/main/assets/static/dashboard.html" -OutFile "$StaticDir\dashboard.html" -ErrorAction Stop
             Write-Green "[OK] Dashboard downloaded from GitHub"
         } catch {
             Write-Yellow "[!] Could not install dashboard"
@@ -128,7 +128,7 @@ function Install-CLIProxy {
     } else {
         # Fallback: download from GitHub
         try {
-            Invoke-WebRequest -Uri "https://raw.githubusercontent.com/khmuhtadin/cliproxy-installer/main/assets/scripts/cp-db.ps1" -OutFile $CpDbDest -ErrorAction Stop
+            Invoke-WebRequest -Uri "https://raw.githubusercontent.com/imrosyd/cliproxy-installer/main/assets/scripts/cp-db.ps1" -OutFile $CpDbDest -ErrorAction Stop
             Write-Green "[OK] cp-db downloaded from GitHub"
         } catch {
             Write-Yellow "[!] Could not install cp-db command"
