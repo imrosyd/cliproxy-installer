@@ -1,20 +1,19 @@
 #!/bin/bash
 
-# ==============================================================================
+# ══════════════════════════════════════════════════════════════════════════════
 # CLIProxy Uninstaller
-# Thoroughly removes CLIProxy and its components
-# ==============================================================================
+# ══════════════════════════════════════════════════════════════════════════════
 
-# --- Colors ---
+# ── Colors ──
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 CYAN='\033[0;36m'
-NC='\033[0m' # No Color
+BOLD='\033[1m'
+DIM='\033[2m'
+NC='\033[0m'
 
-echo -e "${CYAN}========================================${NC}"
-echo -e "${CYAN}       CLIProxy Thorough Uninstaller      ${NC}"
-echo -e "${CYAN}========================================${NC}"
+echo -e "${CYAN}${BOLD}  ══  CLIProxy Uninstaller  ══${NC}"
 echo ""
 
 # 1. Ask for confirmation
@@ -24,36 +23,62 @@ if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
     exit 0
 fi
 
-# 2. Stop running services
+# 2. Collect optional uninstall choices at the beginning
+echo ""
+echo -e "${YELLOW}${BOLD}  ── Uninstall Options ─────────────────────────────${NC}"
+echo "Choose optional cleanup targets now."
+echo ""
+read -p "Remove Claude statusline files (~\/Scripts\/claude-statusline)? (y/n): " REMOVE_STATUSLINE < /dev/tty
+read -p "Remove CLIProxy provider from OpenCode config? (y/n): " REMOVE_OPENCODE_PROVIDER < /dev/tty
+read -p "Remove CLIProxy custom models from Droid config? (y/n): " REMOVE_DROID_MODELS < /dev/tty
+read -p "Clean CLIProxy statusline entry from Claude settings? (y/n): " CLEAN_CLAUDE_SETTINGS < /dev/tty
+echo ""
+
+# Helpers
+remove_cron_entries() {
+    local tmp
+    tmp=$(mktemp)
+    if crontab -l 2>/dev/null > "$tmp"; then
+        grep -v "$HOME/.cliproxyapi/scripts/quota-fetcher.py" "$tmp" > "$tmp.new" || true
+        crontab "$tmp.new" 2>/dev/null || true
+        rm -f "$tmp.new"
+        echo -e "${GREEN}[OK] CLIProxy cron entries removed.${NC}"
+    else
+        echo -e "${GREEN}[OK] No user cron to clean.${NC}"
+    fi
+    rm -f "$tmp"
+}
+
+# 2. Stop running services (targeted)
 echo -e "${YELLOW}>>> Stopping CLIProxy services...${NC}"
-pkill -f unified-server.py || true
-pkill -f cliproxyapi-plus || true
-echo -e "${GREEN}[OK] Services stopped.${NC}"
+pkill -f "$HOME/.cliproxyapi/scripts/unified-server.py" 2>/dev/null || true
+pkill -f "$HOME/.cliproxyapi/bin/cliproxyapi" 2>/dev/null || true
+# Fallback for older process command-lines
+pkill -f "cliproxyapi.*\.cliproxyapi/config.yaml" 2>/dev/null || true
+pkill -f "$HOME/bin/cliproxyapi" 2>/dev/null || true
+echo -e "${GREEN}[OK] Services stop signal sent.${NC}"
 
-# 3. Remove Cron Job
-echo -e "${YELLOW}>>> Removing Cron Job...${NC}"
-crontab -l 2>/dev/null | grep -v "quota-fetcher.py" | crontab - 2>/dev/null
-echo -e "${GREEN}[OK] Cron job removed.${NC}"
+# 3. Remove CLIProxy cron jobs only
+echo -e "${YELLOW}>>> Removing CLIProxy cron job...${NC}"
+remove_cron_entries
 
-# 4. Remove directories and configs
-echo -e "${YELLOW}>>> Removing installation directories and configs...${NC}"
+# 4. Remove installation directories and CLIProxy-managed files
+echo -e "${YELLOW}>>> Removing installation directories and files...${NC}"
+rm -rf "$HOME/.cliproxyapi"
 rm -rf "$HOME/.cli-proxy-api"
-rm -rf "$HOME/Scripts/claude-statusline"
-
-# Remove OpenCode and Droid configs
-rm -f "$HOME/.config/opencode/opencode.json" 2>/dev/null
-rm -f "$HOME/.factory/config.json" 2>/dev/null
-
-echo -e "${GREEN}[OK] Directories and configs removed.${NC}"
-
-# 5. Remove binaries
-echo -e "${YELLOW}>>> Removing binaries...${NC}"
+# Clean legacy locations
+rm -f "$HOME/bin/cliproxyapi"
 rm -f "$HOME/bin/cliproxyapi-plus"
-rm -f "$HOME/bin/cliproxyapi-plus.exe"
+rm -f "$HOME/bin/cliproxyapi.exe"
 rm -f "$HOME/bin/cp-db"
-echo -e "${GREEN}[OK] Binaries removed.${NC}"
+rm -f "/usr/local/bin/cp-db" 2>/dev/null || true
+# Remove ~/bin if empty
+if [ -d "$HOME/bin" ] && [ -z "$(ls -A "$HOME/bin" 2>/dev/null)" ]; then
+    rmdir "$HOME/bin" 2>/dev/null || true
+fi
+echo -e "${GREEN}[OK] CLIProxy directories and binaries removed.${NC}"
 
-# 6. Remove aliases from shell config
+# 5. Remove aliases from shell config
 echo -e "${YELLOW}>>> Removing aliases from shell configuration...${NC}"
 remove_aliases() {
     local config=$1
@@ -78,22 +103,87 @@ remove_aliases() {
 remove_aliases "$HOME/.bashrc"
 remove_aliases "$HOME/.zshrc"
 
+# 6. Optional cleanup for external integrations
+if [[ "$REMOVE_STATUSLINE" =~ ^[Yy]$ ]]; then
+    rm -rf "$HOME/Scripts/claude-statusline"
+    echo -e "${GREEN}[OK] Removed ~/Scripts/claude-statusline.${NC}"
+else
+    echo -e "${YELLOW}[SKIP] Kept ~/Scripts/claude-statusline.${NC}"
+fi
+
+if [[ "$REMOVE_OPENCODE_PROVIDER" =~ ^[Yy]$ ]]; then
+    OPENCODE_CFG="$HOME/.config/opencode/opencode.json"
+    if [ -f "$OPENCODE_CFG" ] && command -v jq >/dev/null 2>&1; then
+        if jq 'del(.provider.cliproxy) | if .model|type=="string" and (.model|startswith("cliproxy/")) then .model = null else . end | if .small_model|type=="string" and (.small_model|startswith("cliproxy/")) then .small_model = null else . end' "$OPENCODE_CFG" > "$OPENCODE_CFG.tmp" && mv "$OPENCODE_CFG.tmp" "$OPENCODE_CFG"; then
+            echo -e "${GREEN}[OK] Removed cliproxy provider from OpenCode config.${NC}"
+        else
+            rm -f "$OPENCODE_CFG.tmp"
+            echo -e "${YELLOW}[!] Failed to edit OpenCode config. Kept original file.${NC}"
+        fi
+    elif [ -f "$OPENCODE_CFG" ]; then
+        echo -e "${YELLOW}[!] jq not found, skipping OpenCode config edit.${NC}"
+    else
+        echo -e "${GREEN}[OK] OpenCode config not found.${NC}"
+    fi
+else
+    echo -e "${YELLOW}[SKIP] Kept OpenCode config.${NC}"
+fi
+
+if [[ "$REMOVE_DROID_MODELS" =~ ^[Yy]$ ]]; then
+    DROID_CFG="$HOME/.factory/config.json"
+    if [ -f "$DROID_CFG" ] && command -v jq >/dev/null 2>&1; then
+        if jq '.custom_models = ((.custom_models // []) | map(select((.base_url // "") != "http://localhost:8317/v1" and (.api_key // "") != "sk-dummy")))' "$DROID_CFG" > "$DROID_CFG.tmp" && mv "$DROID_CFG.tmp" "$DROID_CFG"; then
+            echo -e "${GREEN}[OK] Removed CLIProxy-generated Droid models.${NC}"
+        else
+            rm -f "$DROID_CFG.tmp"
+            echo -e "${YELLOW}[!] Failed to edit Droid config. Kept original file.${NC}"
+        fi
+    elif [ -f "$DROID_CFG" ]; then
+        echo -e "${YELLOW}[!] jq not found, skipping Droid config edit.${NC}"
+    else
+        echo -e "${GREEN}[OK] Droid config not found.${NC}"
+    fi
+else
+    echo -e "${YELLOW}[SKIP] Kept Droid config.${NC}"
+fi
+
 # 7. Check Claude Code settings
 CLAUDE_SETTINGS="$HOME/.claude/settings.json"
-if [ -f "$CLAUDE_SETTINGS" ]; then
+if [[ "$CLEAN_CLAUDE_SETTINGS" =~ ^[Yy]$ ]] && [ -f "$CLAUDE_SETTINGS" ]; then
     echo -e "${YELLOW}>>> Checking Claude Code settings...${NC}"
     if command -v jq &> /dev/null; then
-        # Remove statusLine config
-        jq 'del(.statusLine)' "$CLAUDE_SETTINGS" > "$CLAUDE_SETTINGS.tmp" && mv "$CLAUDE_SETTINGS.tmp" "$CLAUDE_SETTINGS"
-        echo -e "${GREEN}[OK] Removed statusLine from Claude Code settings.${NC}"
+        # Remove only CLIProxy-installed statusLine entry
+        jq 'if .statusLine.command == "/bin/bash $HOME/Scripts/claude-statusline/statusline-command.sh" then del(.statusLine) else . end' "$CLAUDE_SETTINGS" > "$CLAUDE_SETTINGS.tmp" && mv "$CLAUDE_SETTINGS.tmp" "$CLAUDE_SETTINGS"
+        echo -e "${GREEN}[OK] Claude settings cleanup done.${NC}"
     else
         echo -e "${YELLOW}[!] jq not found, skipping Claude Code settings cleanup.${NC}"
     fi
+elif [[ ! "$CLEAN_CLAUDE_SETTINGS" =~ ^[Yy]$ ]]; then
+    echo -e "${YELLOW}[SKIP] Kept Claude settings.${NC}"
 fi
 
 echo ""
-echo -e "${GREEN}========================================${NC}"
-echo -e "${GREEN}   UNINSTALLATION COMPLETE!${NC}"
-echo -e "${GREEN}========================================${NC}"
-echo "Please restart your terminal or run 'source ~/.zshrc' / 'source ~/.bashrc'."
+echo -e "${GREEN}${BOLD}  ══  Uninstall Complete!  ══${NC}"
 echo ""
+
+# Auto-source shell configuration to apply alias removals
+echo -e "${YELLOW}Cleaning up shell aliases...${NC}"
+
+if [[ "$SHELL" == *"zsh"* ]]; then
+    [ -f "$HOME/.zshrc" ] && source "$HOME/.zshrc" 2>/dev/null
+elif [[ "$SHELL" == *"fish"* ]]; then
+    [ -f "$HOME/.config/fish/config.fish" ] && source "$HOME/.config/fish/config.fish" 2>/dev/null
+else
+    [ -f "$HOME/.bashrc" ] && source "$HOME/.bashrc" 2>/dev/null
+fi
+
+echo -e "${GREEN}[OK] Shell aliases cleaned!${NC}"
+echo ""
+
+# Restart shell to reflect changes
+echo -e "${YELLOW}Restarting shell...${NC}"
+sleep 1
+
+# Replace current shell with new interactive shell
+exec "$SHELL" -i
+

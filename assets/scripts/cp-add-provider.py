@@ -3,12 +3,10 @@ import sys
 import json
 import urllib.request
 
-CONFIG_PATH = os.path.expanduser("~/.cli-proxy-api/config.yaml")
+CONFIG_PATH = os.path.expanduser("~/.cliproxyapi/config.yaml")
 
 def print_header():
-    print("=========================================")
-    print("   CLIProxy - Add Custom Provider")
-    print("=========================================")
+    print("\n  \u2550\u2550  CLIProxy - Add Custom Provider  \u2550\u2550\n")
     print("This will add an OpenAI-Compatible endpoint")
     print("seamlessly into your local configuration.\n")
 
@@ -22,7 +20,7 @@ def get_input(prompt, required=True):
         print("[!] This field is required.\n")
 
 def fetch_models(base_url, api_key):
-    print("\n⏳ Fetching available models from API...")
+    print("\nFetching available models from API...")
     url = base_url.rstrip("/") + "/models"
     
     try:
@@ -35,7 +33,7 @@ def fetch_models(base_url, api_key):
             models = data.get("data", [])
             return [m.get("id") for m in models if m.get("id")]
     except Exception as e:
-        print(f"❌ Failed to fetch models: {e}")
+        print(f"[ERROR] Failed to fetch models: {e}")
         return []
 
 def main():
@@ -48,16 +46,16 @@ def main():
     models = fetch_models(base_url, api_key)
     
     if not models:
-        print("\n⚠️  No models could be auto-fetched.")
+        print("\n[!] No models could be auto-fetched.")
         print("You can add models manually later in config.yaml.")
         models_to_add = []
     else:
-        print(f"✅ Fast-fetched {len(models)} models!")
+        print(f"[OK] Fast-fetched {len(models)} models!")
         models_to_add = models
     
     # Load existing config
     if not os.path.exists(CONFIG_PATH):
-        print(f"\n❌ CLIProxy Config not found at {CONFIG_PATH}")
+        print(f"\n[ERROR] CLIProxy Config not found at {CONFIG_PATH}")
         print("Please run `cp-start` or reinstall CLIProxy first.")
         sys.exit(1)
         
@@ -65,14 +63,14 @@ def main():
         with open(CONFIG_PATH, 'r') as f:
             lines = f.readlines()
     except Exception as e:
-        print(f"\n❌ Error reading config.yaml: {e}")
+        print(f"\n[ERROR] Error reading config.yaml: {e}")
         sys.exit(1)
         
     # Check if provider exists
     for line in lines:
         if line.strip() == f'name: "{provider_name}"' or line.strip() == f"name: {provider_name}":
-            print(f"\n⚠️  Provider '{provider_name}' already exists in config.yaml.")
-            print("Please edit ~/.cli-proxy-api/config.yaml manually to update it.")
+            print(f"\n[!] Provider '{provider_name}' already exists in config.yaml.")
+            print("Please edit ~/.cliproxyapi/config.yaml manually to update it.")
             sys.exit(1)
             
     # Build YAML block manually
@@ -106,10 +104,10 @@ def main():
         with open(CONFIG_PATH, 'w') as f:
             f.write(content)
     except Exception as e:
-        print(f"\n❌ Error saving config.yaml: {e}")
+        print(f"\n[ERROR] Error saving config.yaml: {e}")
         sys.exit(1)
         
-    print("\n✅ Successfully added custom provider to config.yaml!")
+    print("\n[OK] Successfully added custom provider to config.yaml!")
     print("Please restart CLIProxy using `cp-start` to apply the changes.")
 
 if __name__ == "__main__":

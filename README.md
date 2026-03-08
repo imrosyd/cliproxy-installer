@@ -1,108 +1,155 @@
-# 🌌 CLIProxy: Ultimate Universal Proxy & Dashboard
+# CLIProxy: Universal AI Proxy & Dashboard
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Version: 1.0.0](https://img.shields.io/badge/Version-1.0.0-blue.svg)](https://github.com/imrosyd/cliproxy-installer)
+[![Version: 2.0.0](https://img.shields.io/badge/Version-2.0.0-blue.svg)](https://github.com/imrosyd/cliproxy-installer)
 
-**CLIProxy** is a high-performance, automated installer and management suite for **CLIProxyAPIPlus**. It seamlessly translates custom AI models (Claude 3.5, Gemini 1.5, GPT-5, etc.) into OpenAI-compatible endpoints for use in modern AI tools like **Droid**, **Cursor**, **Claude Code**, and **OpenCode**.
-
----
-
-## ✨ Key Features
-
-- **🚀 Instant Setup**: One-click, cross-platform installer for macOS, Linux, and Windows (Git Bash).
-- **🎨 Elite Dashboard**: Stunning, glassmorphism-inspired UI for real-time monitoring and configuration.
-- **🛡️ Smart Conflict Resolution**: Automatically prevents port conflicts and handles authentication errors gracefully.
-- **🔌 Universal Custom Providers**: Add any OpenAI-compatible service with **Auto-Detection** and **Auto-Fetch** capabilities.
-- **🔄 Live Synchronization**: Model lists are dynamically synced across all connected tools (Droid, OpenCode, etc.).
-- **⚡ Supercharged Shortcuts**: Intuitive command-line aliases for total control (`cp-start`, `cp-login`, `cp-db`).
+**CLIProxy** is an installer and management suite for **CLIProxyAPIPlus**. Route AI model requests through a single OpenAI-compatible endpoint with automatic failover across accounts/providers when quota or routing issues happen.
 
 ---
 
-## 🚀 Quick Start (Universal)
+## Why CLIProxy
 
-Run this single command to install or update to the latest version:
+- **Single local endpoint**: `http://localhost:8317/v1`
+- **One-command install** (macOS, Linux, Windows Git Bash)
+- **Automatic failover** for quota/rate-limit/provider-model issues
+- **Local dashboard** for account status, usage, and insights
+
+---
+
+## Quick Install
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/imrosyd/cliproxy-installer/main/install | bash
 ```
 
-> **Note**: For Windows, run this in **Git Bash**. Ensure [Go](https://go.dev/dl/) is installed.
+> Windows: run in **Git Bash** and make sure Go is installed.
 
 ---
 
-## 📖 Essential Workflow
+## Quick Workflow (New Users)
 
-### 1. Authenticate
-Connect your favorite AI providers (Claude, Gemini, Copilot, etc.):
+### 1) Log in to a provider
 ```bash
 cp-login
 ```
 
-### 2. Ignite the Proxy
-Start the unified server (Backend API + Dashboard):
+### 2) Start the proxy
 ```bash
 cp-start
 ```
 
-### 3. Launch the Control Center
-Open the beautiful Web Dashboard to manage accounts and settings:
+### 3) Open the dashboard
 ```bash
 cp-db
 ```
-*Accessible at: `http://localhost:8317/dashboard.html`*
+
+Dashboard: `http://localhost:8317/`
 
 ---
 
-## 🛠️ Advanced Features
+## Command Reference
 
-### 🧩 Adding Custom Providers (Plug-and-Play)
-Our new **Interactive Add** feature makes integrating 3rd-party APIs effortless:
+| Command | Description |
+|---|---|
+| `cp-login` | Interactive provider login |
+| `cp-login-url` | URL/headless login |
+| `cp-start` | Start/restart proxy (with watchdog) |
+| `cp-stop` | Stop proxy |
+| `cp-db` | Open web dashboard |
+| `cp-update` | Update installer/runtime to latest |
+| `cp-add-provider` | Add custom OpenAI-compatible provider |
+| `cp-claude` | Launch Claude Code via CLIProxy |
+| `cp-opencode` | Launch OpenCode via CLIProxy |
+| `cp-droid` | Launch Factory.ai Droid via CLIProxy |
+| `cp-uninstall` | Remove CLIProxy |
+
+---
+
+## Architecture Snapshot (Power Users)
+
+CLIProxy runs in two layers:
+
+1. **Unified Server (`unified-server.py`)**
+   - Main OpenAI-compatible entrypoint (`/v1/...`)
+   - Serves dashboard static files
+   - Handles failover and model alias resolution
+
+2. **Backend Binary (`cliproxyapi`)**
+   - Handles provider routing/auth and available model inventory
+   - Exposes management/metadata endpoints used by dashboard
+
+Default local ports:
+- Unified server: `8317`
+- Backend: managed by runtime scripts
+
+---
+
+## Failover Behavior
+
+When a request fails due to quota/rate limits or provider-model mismatch, CLIProxy tries:
+
+1. another account on the **same provider**
+2. a **different provider** with the same/equivalent model
+3. the best available model candidate
+4. returns error if all candidates fail
+
+Account cooldown after quota error: **120 seconds**.
+
+---
+
+## Install vs Update
+
+- **Fresh install**: cleans old installation and prepares a new runtime.
+- **Update mode** (`cp-update` / `install-linux -update`): refreshes runtime binary/scripts/static without resetting core auth data.
+
+For major changes, backing up important files under `~/.cliproxyapi/` is still recommended.
+
+---
+
+## File Locations
+
+| Path | Description |
+|---|---|
+| `~/.cliproxyapi/config.yaml` | Main configuration |
+| `~/.cliproxyapi/bin/cliproxyapi` | Backend binary |
+| `~/.cliproxyapi/scripts/unified-server.py` | Unified server |
+| `~/.cliproxyapi/static/dashboard.html` | Dashboard UI |
+| `~/.cliproxyapi/logs/backend.log` | Backend logs |
+| `~/.cliproxyapi/logs/error-v1-messages-*.log` | Per-request error logs |
+
+---
+
+## Debug Endpoints
+
 ```bash
-cp-add-provider
+curl http://localhost:8317/health
+curl http://localhost:8317/api/system/info
+curl http://localhost:8317/v0/management/auth-files
+curl http://localhost:8317/v0/management/usage
 ```
-- **Auto-v1 Detection**: Automatically corrects Base URLs (e.g., adds `/v1` if needed).
-- **Auto-Model Discovery**: Instantly fetches all available models from the provider.
-- **Dynamic Integration**: Models appear in the Dashboard and all connected tools immediately.
-
-### 🍱 Integrated AI Toolsets
-- **`cp-claude`**: Launch Claude Code via CLIProxy.
-- **`cp-droid`**: Optimized integration with [Factory.ai Droid](https://docs.factory.ai).
-- **`cp-opencode`**: Fast-launch OpenCode with live-synced models.
 
 ---
 
-## ⌨️ Command Reference
+## Quick Troubleshooting
 
-| Shortcut | Action |
-| :--- | :--- |
-| **`cp-login`** | Interactive menu to authenticate AI providers |
-| **`cp-start`** | Cleanly start/restart the unified proxy server |
-| **`cp-stop`** | Halt all background processes |
-| **`cp-db`** | Launch the Premium Web Dashboard |
-| **`cp-add-provider`** | Add any OpenAI-compatible API dynamically |
-| **`cp-update`** | Update core binary, installer, and dashboard |
-| **`cp-uninstall`** | Fully remove all components and configurations |
+- Full troubleshooting guide: [`docs/TROUBLESHOOTING.md`](docs/TROUBLESHOOTING.md)
+- If runtime scripts look outdated, run update installer:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/imrosyd/cliproxy-installer/main/install | bash -- -update
+```
 
 ---
 
-## 📂 Architecture & Paths
+## Docs Index
 
-- **Core Binary**: `~/bin/cliproxyapi-plus`
-- **Configuration**: `~/.cli-proxy-api/config.yaml` (YAML-based)
-- **Static Assets**: `~/.cli-proxy-api/static/`
-- **Utility Scripts**: `~/.cli-proxy-api/scripts/`
-
----
-
-## 🤝 Community & Support
-
-- **Maintained by**: [imrosyd](https://github.com/imrosyd)
-- **Core Library**: [CLIProxyAPIPlus](https://github.com/router-for-me/CLIProxyAPIPlus) (by khmuhtadin)
-
-For troubleshooting, visit our [Extended Guide](docs/TROUBLESHOOTING.md) or check the **Settings** tab in your Dashboard.
+- [docs/QUICKSTART.md](docs/QUICKSTART.md)
+- [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)
+- [docs/CHANGELOG.md](docs/CHANGELOG.md)
 
 ---
 
-<p align="center">
-  <i>Empowering your local AI workflow with elegance and speed.</i>
-</p>
+## Support
+
+- Issues: [github.com/imrosyd/cliproxy-installer/issues](https://github.com/imrosyd/cliproxy-installer/issues)
+- Core library: [CLIProxyAPIPlus](https://github.com/router-for-me/CLIProxyAPIPlus)

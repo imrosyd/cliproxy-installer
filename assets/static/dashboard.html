@@ -302,7 +302,7 @@
         /* ── Stats ───────────────────────────────── */
         .stats-grid {
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
+            grid-template-columns: repeat(4, 1fr);
             gap: 12px;
             margin-bottom: 24px;
         }
@@ -652,6 +652,7 @@
         }
 
         /* ── Responsive ──────────────────────────── */
+        @media (max-width: 1400px) { .stats-grid { grid-template-columns: repeat(3,1fr); } }
         @media (max-width: 1100px) { .stats-grid { grid-template-columns: repeat(2,1fr); } }
         @media (max-width: 900px) {
             .sidebar { transform: translateX(-100%); transition: transform 0.2s ease; }
@@ -688,6 +689,10 @@
                 <i data-lucide="layout-dashboard" class="n-icon"></i>
                 Dashboard
             </a>
+            <a href="#" class="nav-item" data-tab="insights">
+                <i data-lucide="activity" class="n-icon"></i>
+                Insights
+            </a>
         </div>
         <div class="nav-group">
             <div class="nav-group-label">Management</div>
@@ -695,10 +700,6 @@
                 <i data-lucide="users" class="n-icon"></i>
                 Accounts
                 <span class="nav-badge" id="accountsBadge">0</span>
-            </a>
-            <a href="#" class="nav-item" data-tab="quota">
-                <i data-lucide="gauge" class="n-icon"></i>
-                Quota
             </a>
         </div>
         <div class="nav-group">
@@ -767,29 +768,100 @@
             </div>
             <div class="stat-card">
                 <div class="stat-top">
-                    <span class="stat-name">Avg Quota</span>
-                    <div class="stat-icon-wrap"><i data-lucide="battery-charging" style="width:14px;height:14px"></i></div>
+                    <span class="stat-name">Requests</span>
+                    <div class="stat-icon-wrap"><i data-lucide="activity" style="width:14px;height:14px"></i></div>
                 </div>
-                <div class="stat-value" id="statQuota">—</div>
-                <div class="stat-sub">remaining (avg)</div>
+                <div class="stat-value" id="statRequests">—</div>
+                <div class="stat-sub">total requests</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-top">
+                    <span class="stat-name">Models</span>
+                    <div class="stat-icon-wrap"><i data-lucide="cpu" style="width:14px;height:14px"></i></div>
+                </div>
+                <div class="stat-value" id="statModels">—</div>
+                <div class="stat-sub">available models</div>
+            </div>
+        </div>
+
+        <div class="card" style="margin-top:20px;">
+            <div class="card-header">
+                <div>
+                    <div class="card-title">Active Accounts</div>
+                    <div class="card-subtitle" id="dashAccountsSubtitle">—</div>
+                </div>
+            </div>
+            <div class="card-body" id="dashAccountsList">
+                <div class="loading-state"><div class="spinner"></div><p>Loading…</p></div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Insights Tab -->
+    <div id="tab-insights" class="tab-content">
+        <div class="page-header">
+            <div>
+                <h1>Insights</h1>
+                <p>Request traffic and API usage</p>
+            </div>
+            <div class="header-actions">
+                <button class="btn btn-outline" onclick="loadInsightsData()">
+                    <i data-lucide="refresh-cw" style="width:13px;height:13px"></i>
+                    Refresh
+                </button>
+            </div>
+        </div>
+
+        <div class="stats-grid" style="margin-bottom:20px;">
+            <div class="stat-card">
+                <div class="stat-top">
+                    <span class="stat-name">Total Requests</span>
+                    <div class="stat-icon-wrap"><i data-lucide="send" style="width:14px;height:14px"></i></div>
+                </div>
+                <div class="stat-value" id="insightsTotalRequests">—</div>
+                <div class="stat-sub">all time</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-top">
+                    <span class="stat-name">Success</span>
+                    <div class="stat-icon-wrap" style="background:var(--success-bg);color:var(--success)"><i data-lucide="check-circle" style="width:14px;height:14px"></i></div>
+                </div>
+                <div class="stat-value" id="insightsSuccess">—</div>
+                <div class="stat-sub" id="insightsSuccessRate">success rate: —</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-top">
+                    <span class="stat-name">Failures</span>
+                    <div class="stat-icon-wrap" style="background:var(--error-bg);color:var(--error)"><i data-lucide="x-circle" style="width:14px;height:14px"></i></div>
+                </div>
+                <div class="stat-value" id="insightsFailure">—</div>
+                <div class="stat-sub">failed requests</div>
+            </div>
+        </div>
+
+        <div class="card" style="margin-bottom:20px;">
+            <div class="card-header">
+                <div>
+                    <div class="card-title">Top APIs</div>
+                    <div class="card-subtitle">Most requested API groups</div>
+                </div>
+            </div>
+            <div class="card-body" id="insightsApis">
+                <div class="loading-state"><div class="spinner"></div><p>Loading…</p></div>
             </div>
         </div>
 
         <div class="card">
             <div class="card-header">
                 <div>
-                    <div class="card-title">Recent Accounts</div>
-                    <div class="card-subtitle">Quota snapshot from last fetch</div>
+                    <div class="card-title">Requests by Day</div>
+                    <div class="card-subtitle">Recent daily traffic</div>
                 </div>
             </div>
-            <div id="dashboardAccountsPreview">
+            <div class="card-body" id="insightsByDay">
                 <div class="loading-state"><div class="spinner"></div><p>Loading…</p></div>
             </div>
-        </div>
-
-        <div class="info-row">
-            <i data-lucide="info" style="width:12px;height:12px"></i>
-            Run <code>python3 ~/.cli-proxy-api/scripts/quota-fetcher.py</code> to refresh quota data.
         </div>
     </div>
 
@@ -801,6 +873,10 @@
                 <p>Authenticated proxy accounts</p>
             </div>
             <div class="header-actions">
+                <button class="btn btn-primary" onclick="openLoginAccountModal()">
+                    <i data-lucide="log-in" style="width:13px;height:13px"></i>
+                    Login Account
+                </button>
                 <button class="btn btn-outline" onclick="loadAccountsData()">
                     <i data-lucide="refresh-cw" style="width:13px;height:13px"></i>
                     Refresh
@@ -826,40 +902,20 @@
                 <thead>
                     <tr>
                         <th>Account</th>
-                        <th>Claude</th>
-                        <th>Gemini Pro</th>
-                        <th>Flash</th>
+                        <th>Count</th>
+                        <th>Models</th>
                         <th>Status</th>
                         <th></th>
                     </tr>
                 </thead>
                 <tbody id="accountsTable">
-                    <tr><td colspan="6"><div class="loading-state"><div class="spinner"></div><p>Loading…</p></div></td></tr>
+                    <tr><td colspan="5"><div class="loading-state"><div class="spinner"></div><p>Loading…</p></div></td></tr>
                 </tbody>
             </table>
             <div class="table-footer">
                 <div class="table-info" id="accountsInfo">—</div>
                 <div class="pagination" id="accountsPagination"></div>
             </div>
-        </div>
-    </div>
-
-    <!-- Quota Tab -->
-    <div id="tab-quota" class="tab-content">
-        <div class="page-header">
-            <div>
-                <h1>Quota</h1>
-                <p>Remaining quota per account</p>
-            </div>
-            <div class="header-actions">
-                <button class="btn btn-outline" onclick="loadQuotaData()">
-                    <i data-lucide="refresh-cw" style="width:13px;height:13px"></i>
-                    Refresh
-                </button>
-            </div>
-        </div>
-        <div class="quota-grid" id="quotaGrid">
-            <div class="loading-state"><div class="spinner"></div><p>Loading…</p></div>
         </div>
     </div>
 
@@ -965,11 +1021,37 @@
         </div>
     </div>
 
+    <div id="loginAccountModal" class="modal-overlay" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.7); z-index:9999; align-items:center; justify-content:center;">
+        <div class="modal-content" style="background:var(--bg-card); border:1px solid var(--border); border-radius:12px; padding:24px; width:420px; max-width:90vw;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                <h2 style="margin:0; font-size:16px;">Login Account</h2>
+                <button class="btn-icon" onclick="closeLoginAccountModal()">
+                    <i data-lucide="x" style="width:16px;height:16px"></i>
+                </button>
+            </div>
+            <p style="font-size:13px; color:var(--text-2); margin:0 0 16px 0;">
+                Start the same local login flow as <code>cp-login</code>. After login completes, refresh Accounts to see the new shared account in both dashboard and CLI.
+            </p>
+            <div class="input-group" style="margin-bottom:20px">
+                <label style="display:block; margin-bottom:8px; font-size:12px; color:var(--text-2);">Provider</label>
+                <select id="loginProviderSelect" style="width:100%; padding:10px; background:var(--bg-card); border:1px solid var(--border); border-radius:6px; color:var(--text);">
+                    <option value="">Select provider…</option>
+                </select>
+            </div>
+            <div style="display:flex; justify-content:flex-end; gap:10px;">
+                <button class="btn btn-secondary" onclick="closeLoginAccountModal()" style="padding:10px 16px; border-radius:6px; font-weight:500;">Cancel</button>
+                <button class="btn btn-primary" id="loginAccountBtn" onclick="submitLoginAccount()" style="padding:10px 16px; border-radius:6px; font-weight:500;">
+                    <i data-lucide="log-in" style="width:16px;height:16px;margin-right:6px"></i> Start Login
+                </button>
+            </div>
+        </div>
+    </div>
+
 <div class="toast" id="toast"></div>
 
 <script>
 /* ── Config ──────────────────────────────────────────── */
-const API_BASE       = 'http://localhost:8317/v0';
+const API_BASE       = window.location.origin + '/v0';
 const MANAGEMENT_KEY = localStorage.getItem('cp_mgmt_key') || 'sk-dummy';
 
 // QUOTA_CACHE_START
@@ -979,6 +1061,8 @@ const EMBEDDED_QUOTA_CACHE = null;
 /* ── State ───────────────────────────────────────────── */
 let accountsData = [];
 let quotaCache   = EMBEDDED_QUOTA_CACHE || { accounts: {} };
+let providerModelsIndex = {};
+let usageData = null;
 let currentPage  = 1;
 const PER_PAGE   = 8;
 
@@ -1026,9 +1110,9 @@ function switchTab(tabName) {
     if (target) target.classList.add('active');
 
     if (tabName === 'accounts') loadAccountsData();
-    else if (tabName === 'quota')    loadQuotaData();
     else if (tabName === 'settings') loadSettings();
     else if (tabName === 'dashboard') renderDashboardPreview();
+    else if (tabName === 'insights') loadInsightsData();
 }
 
 /* ── Server Status ───────────────────────────────────── */
@@ -1066,6 +1150,41 @@ async function refreshAll() {
     try {
         if (EMBEDDED_QUOTA_CACHE) quotaCache = EMBEDDED_QUOTA_CACHE;
 
+        let cfg = {};
+        try {
+            const cfgResp = await fetch(API_BASE + '/management/config', {
+                headers: { 'X-Management-Key': MANAGEMENT_KEY }
+            });
+            if (cfgResp.ok) cfg = await cfgResp.json();
+        } catch (e) {
+            console.warn('Could not fetch config:', e);
+        }
+
+        let runtimeModelsPayload = {};
+        try {
+            const runtimeResp = await fetch('http://localhost:8317/v1/models', {
+                headers: { 'Authorization': 'Bearer ' + MANAGEMENT_KEY }
+            });
+            if (runtimeResp.ok) runtimeModelsPayload = await runtimeResp.json();
+        } catch (e) {
+            console.warn('Could not fetch runtime models:', e);
+        }
+
+        usageData = null;
+        try {
+            const usageResp = await fetch(API_BASE + '/management/usage', {
+                headers: { 'X-Management-Key': MANAGEMENT_KEY }
+            });
+            if (usageResp.ok) usageData = await usageResp.json();
+        } catch (e) {
+            console.warn('Could not fetch usage data:', e);
+        }
+
+        providerModelsIndex = mergeModelsIndex(
+            buildProviderModelsIndex(cfg),
+            buildRuntimeModelsIndex(runtimeModelsPayload)
+        );
+
         const accResp = await fetch(API_BASE + '/management/auth-files', {
             headers: { 'X-Management-Key': MANAGEMENT_KEY }
         });
@@ -1073,27 +1192,22 @@ async function refreshAll() {
         if (accResp.ok) {
             const data = await accResp.json();
             accountsData = buildAccountsWithQuota(data.files || []);
-            
-            // Look for custom config nodes
-            try {
-                const cfgResp = await fetch(API_BASE + '/management/config', { headers: { 'X-Management-Key': MANAGEMENT_KEY }});
-                if (cfgResp.ok) {
-                    const cfg = await cfgResp.json();
-                    const customs = (cfg['openai-compatibility'] || []).map(p => ({
-                        id: 'custom-' + p.name,
-                        email: p.name + ' (Custom Config)',
-                        type: 'custom',
-                        models: p.models || [],
-                        disabled: false,
-                        unavailable: false,
-                        quota: null
-                    }));
-                    accountsData = accountsData.concat(customs);
-                }
-            } catch (e) {
-                console.warn('Could not fetch custom providers:', e);
-            }
-            
+
+            const customs = (cfg['openai-compatibility'] || []).map(p => ({
+                id: 'custom-' + p.name,
+                email: p.name + ' (Custom Config)',
+                provider: p.name,
+                type: 'custom',
+                baseUrl: p['base-url'] || p.base_url || '',
+                status: 'active',
+                status_message: '',
+                models: normalizeModelList(p.models),
+                disabled: false,
+                unavailable: false,
+                quota: null
+            }));
+            accountsData = accountsData.concat(customs);
+
             document.getElementById('accountsBadge').textContent = accountsData.length;
             document.getElementById('statAccounts').textContent  = accountsData.length;
         } else {
@@ -1122,13 +1236,221 @@ async function refreshAll() {
 }
 
 /* ── Build accounts with quota ───────────────────────── */
+function normalizeModelList(models) {
+    const list = Array.isArray(models) ? models : [];
+    const seen = new Set();
+    const out = [];
+
+    list.forEach(function(item) {
+        const raw = typeof item === 'string'
+            ? item.trim()
+            : String(item?.alias || item?.name || '').trim();
+        if (!raw) return;
+
+        const normalizedKey = raw.toLowerCase();
+        if (seen.has(normalizedKey)) return;
+        seen.add(normalizedKey);
+
+        out.push({ name: formatModelName(raw) });
+    });
+
+    return out;
+}
+
+function formatModelName(rawName) {
+    const raw = String(rawName || '').trim();
+    if (!raw) return '';
+
+    const lower = raw.toLowerCase();
+    if (lower === 'claude') return 'Claude';
+    if (lower === 'claude-opus') return 'Claude Opus';
+    if (lower === 'claude-sonnet') return 'Claude Sonnet';
+    if (lower === 'claude-haiku') return 'Claude Haiku';
+    if (lower === 'gemini-pro') return 'Gemini Pro';
+    if (lower === 'gemini-flash') return 'Gemini Flash';
+
+    return raw
+        .replace(/^claude[-_]/i, 'Claude ')
+        .replace(/^gemini[-_]/i, 'Gemini ')
+        .replace(/^gpt[-_]/i, 'GPT-')
+        .replace(/[-_]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .replace(/\b(\d+)\s+(\d+)\b/g, '$1.$2')
+        .replace(/\b\w/g, function(c) { return c.toUpperCase(); });
+}
+
+function buildRuntimeModelsIndex(modelsPayload) {
+    const index = {};
+    const grouped = {};
+
+    (modelsPayload?.data || []).forEach(function(model) {
+        const owner = String(model?.owned_by || '').trim().toLowerCase();
+        const modelId = String(model?.id || '').trim();
+        if (!owner || !modelId) return;
+        if (!grouped[owner]) grouped[owner] = [];
+        grouped[owner].push(modelId);
+    });
+
+    Object.keys(grouped).forEach(function(owner) {
+        index[owner] = normalizeModelList(grouped[owner]);
+    });
+
+    return index;
+}
+
+function mergeModelsIndex(primary, secondary) {
+    return Object.assign({}, primary || {}, secondary || {});
+}
+
+function fallbackModelsForAccount(acc) {
+    return [];
+}
+
+function buildProviderModelsIndex(cfg) {
+    const index = {};
+
+    (cfg?.['openai-compatibility'] || []).forEach(function(provider) {
+        const key = String(provider?.name || '').trim().toLowerCase();
+        if (!key) return;
+        index[key] = normalizeModelList(provider.models);
+    });
+
+    const oauthAlias = cfg?.['oauth-model-alias'] || {};
+    Object.keys(oauthAlias).forEach(function(providerKey) {
+        const key = String(providerKey || '').trim().toLowerCase();
+        if (!key) return;
+
+        const models = normalizeModelList(oauthAlias[providerKey]);
+        index[key] = models;
+
+        // Support key variants: github-copilot <-> github_copilot
+        index[key.replace(/_/g, '-')] = models;
+        index[key.replace(/-/g, '_')] = models;
+    });
+
+    return index;
+}
+
+function pickAccountModels(acc) {
+    const direct = normalizeModelList(acc.models);
+    if (direct.length > 0) return direct;
+
+    const providerKeys = [
+        String(acc.provider || '').trim().toLowerCase(),
+        String(acc.type || '').trim().toLowerCase(),
+        String(acc.account_type || '').trim().toLowerCase(),
+        String(acc.source || '').trim().toLowerCase(),
+        String(acc.name || '').trim().toLowerCase()
+    ].filter(Boolean);
+
+    for (const key of providerKeys) {
+        const models = providerModelsIndex[key];
+        if (Array.isArray(models) && models.length > 0) return models;
+    }
+
+    // Try to infer owner from auth filename, e.g. antigravity-xxx.json -> antigravity
+    const idRaw = String(acc.id || acc.name || '').trim().toLowerCase();
+    if (idRaw.includes('-')) {
+        const inferred = idRaw.split('-')[0];
+        const inferredModels = providerModelsIndex[inferred];
+        if (Array.isArray(inferredModels) && inferredModels.length > 0) return inferredModels;
+    }
+
+    const fallback = fallbackModelsForAccount(acc);
+    if (fallback.length > 0) return fallback;
+
+    return [];
+}
+
+
+
+function formatProviderLabel(acc) {
+    const rawProvider = String(acc.provider || acc.type || '').trim();
+    if (!rawProvider) return '';
+
+    if (rawProvider.toLowerCase() === 'github-copilot') return 'GitHub Copilot';
+    if (rawProvider.toLowerCase() === 'custom') return 'Custom - Provider';
+
+    return rawProvider
+        .replace(/[-_]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .replace(/\b\w/g, function(c) { return c.toUpperCase(); });
+}
+
+function getAccountPrimaryText(acc) {
+    if (String(acc.type || '').toLowerCase() === 'custom') {
+        const rawName = String(acc.provider || acc.email || '').trim();
+        const cleanName = rawName.replace(/\s*\(custom\s*config\)\s*$/i, '').trim();
+        return 'Custom - ' + (cleanName || 'Provider');
+    }
+
+    return formatProviderLabel(acc) || 'Unknown Provider';
+}
+
+function getAccountSecondaryText(acc) {
+    if (String(acc.type || '').toLowerCase() === 'custom') {
+        return acc.baseUrl ? 'Base URL: ' + String(acc.baseUrl) : (acc.email || 'Base URL: -');
+    }
+
+    return acc.email || '—';
+}
+function getAccountStatusMeta(acc) {
+    const statusRaw = String(acc.status || '').trim().toLowerCase();
+    const message = String(acc.status_message || '').trim();
+
+    if (statusRaw === 'error') {
+        return {
+            key: 'error',
+            label: 'Error',
+            className: 'badge-error',
+            icon: 'x',
+            title: message || 'Account has an error state'
+        };
+    }
+
+    if (statusRaw === 'disabled' || acc.disabled) {
+        return {
+            key: 'disabled',
+            label: 'Disabled',
+            className: 'badge-warning',
+            icon: 'pause-circle',
+            title: message || 'Account is disabled'
+        };
+    }
+
+    if (statusRaw === 'unavailable' || acc.unavailable) {
+        return {
+            key: 'unavailable',
+            label: 'Unavailable',
+            className: 'badge-warning',
+            icon: 'alert-triangle',
+            title: message || 'Account is temporarily unavailable'
+        };
+    }
+
+    return {
+        key: 'active',
+        label: 'Active',
+        className: 'badge-success',
+        icon: 'check',
+        title: message || 'Account is active'
+    };
+}
+
 function buildAccountsWithQuota(files) {
     return (files || [])
         .filter(f => (f.email || f.username))
         .map(acc => {
-            // Assign a stable email string for display
-            acc.email = acc.email || acc.username;
-            return { ...acc, quota: resolveQuota(acc) };
+            const email = acc.email || acc.username;
+            const normalized = { ...acc, email: email };
+            return {
+                ...normalized,
+                models: pickAccountModels(normalized),
+                statusMeta: getAccountStatusMeta(normalized),
+                quota: resolveQuota(normalized)
+            };
         });
 }
 
@@ -1146,73 +1468,121 @@ function updateDashboardStats() {
     const available = accountsData.filter(a => !a.disabled && !a.unavailable).length;
     document.getElementById('statAvailable').textContent = available;
 
-    let total = 0, count = 0;
-    Object.values(quotaCache.accounts || {}).forEach(acc => {
-        ['claude', 'geminiPro', 'geminiFlash'].forEach(key => {
-            const rem = acc.quota?.[key]?.remaining;
-            if (rem != null) { total += rem; count++; }
-        });
-    });
+    const totalRequests = Number(usageData?.usage?.total_requests || 0);
+    document.getElementById('statRequests').textContent = totalRequests.toLocaleString();
 
-    const avg = count > 0 ? Math.round((total / count) * 100) : null;
-    document.getElementById('statQuota').textContent = avg !== null ? avg + '%' : '—';
+    // Count unique models across all active accounts
+    const modelSet = new Set();
+    accountsData.forEach(function(a) {
+        (a.models || []).forEach(function(m) { if (m.name) modelSet.add(m.name); });
+    });
+    const modelsEl = document.getElementById('statModels');
+    if (modelsEl) modelsEl.textContent = modelSet.size > 0 ? modelSet.size : '—';
 }
+
 
 /* ── Dashboard Preview ───────────────────────────────── */
 function renderDashboardPreview() {
-    const container = document.getElementById('dashboardAccountsPreview');
-    if (!container) return;
+    const listEl   = document.getElementById('dashAccountsList');
+    const subtitle = document.getElementById('dashAccountsSubtitle');
+    if (!listEl) return;
 
-    /* Use live accountsData if available, else fall back to quota cache */
-    const sourceAccounts = accountsData.length > 0
-        ? accountsData.slice(0, 5)
-        : Object.values(quotaCache.accounts || {}).slice(0, 5).map(d => ({
-              email: d.email,
-              quota: d.quota,
-              id: null
-          }));
-
-    if (sourceAccounts.length === 0) {
-        container.innerHTML = `<div class="empty-state">
-            <i data-lucide="inbox" style="width:28px;height:28px"></i>
-            <p>No accounts found</p>
-            <small>Run cp-login to add accounts</small>
-        </div>`;
+    if (accountsData.length === 0) {
+        listEl.innerHTML = '<div class="empty-state">' +
+            '<i data-lucide="inbox" style="width:24px;height:24px"></i>' +
+            '<p>No accounts — run <code>cp-login</code> to add one</p>' +
+            '</div>';
         lucide.createIcons();
+        if (subtitle) subtitle.textContent = 'No accounts found';
         return;
     }
 
-    const rows = sourceAccounts.map(acc => {
-        const email = acc.email || '—';
-        const isOfficial = !['antigravity'].includes(acc.type || 'antigravity');
-        const q     = acc.quota;
-        
-        let quotaHtml = '';
-        if (isOfficial) {
-            quotaHtml = '<td colspan="3"><span class="badge badge-success" style="background:var(--success-bg);color:var(--success)">Ready</span></td>';
-        } else {
-            quotaHtml = '<td>' + renderProgress(q?.claude?.remaining) + '</td>' +
-                        '<td>' + renderProgress(q?.geminiPro?.remaining) + '</td>' +
-                        '<td>' + renderProgress(q?.geminiFlash?.remaining) + '</td>';
-        }
+    const active  = accountsData.filter(a => !a.disabled && !a.unavailable);
+    const other   = accountsData.filter(a => a.disabled || a.unavailable);
+    const ordered = active.concat(other);
 
-        return '<tr>' +
-            '<td><div class="account-cell">' +
-                '<div class="account-avatar">' + escapeHtml(email[0].toUpperCase()) + '</div>' +
-                '<div>' +
-                    '<div class="account-name">' + escapeHtml(email.split('@')[0]) + '</div>' +
-                    '<div class="account-email">' + escapeHtml(email) + '</div>' +
+    if (subtitle) subtitle.textContent = active.length + ' active, ' + other.length + ' inactive';
+
+    listEl.innerHTML = '<div class="settings-list">' + ordered.map(function(acc) {
+        const meta    = acc.statusMeta || getAccountStatusMeta(acc);
+        const primary = escapeHtml(getAccountPrimaryText(acc));
+        const email   = escapeHtml(getAccountSecondaryText(acc));
+        const badge   = '<span class="badge ' + meta.className + '">' +
+            '<i data-lucide="' + meta.icon + '" style="width:10px;height:10px"></i> ' + meta.label + '</span>';
+        const modelCount = Array.isArray(acc.models) ? acc.models.length : 0;
+        const modelBadge = modelCount > 0
+            ? '<span class="badge badge-default" style="font-size:11px;">' + modelCount + ' models</span>'
+            : '';
+        return '<div class="settings-row">' +
+            '<div style="display:flex;align-items:center;gap:10px;">' +
+                '<div class="account-avatar" style="width:28px;height:28px;font-size:12px;flex-shrink:0">' +
+                    escapeHtml((acc.email || '?')[0].toUpperCase()) +
                 '</div>' +
-            '</div></td>' +
-            quotaHtml +
-        '</tr>';
-    }).join('');
+                '<div>' +
+                    '<div style="font-size:13px;font-weight:500;color:var(--text-1)">' + primary + '</div>' +
+                    '<div style="font-size:11px;color:var(--text-3)">' + email + '</div>' +
+                '</div>' +
+            '</div>' +
+            '<div style="display:flex;gap:6px;align-items:center">' + modelBadge + badge + '</div>' +
+        '</div>';
+    }).join('') + '</div>';
 
-    container.innerHTML =
-        '<table>' +
-            '<thead><tr><th>Account</th><th>Claude</th><th>Gemini Pro</th><th>Flash</th></tr></thead>' +
-            '<tbody>' + rows + '</tbody>' +
-        '</table>';
+    lucide.createIcons();
+}
+
+/* ── Insights Tab ────────────────────────────────────── */
+function loadInsightsData() {
+    const usage = usageData?.usage || {};
+
+    const total = Number(usage.total_requests || 0);
+    const success = Number(usage.success_count || 0);
+    const failure = Number(usage.failure_count || 0);
+    const successRate = total > 0 ? Math.round((success / total) * 100) : 0;
+
+    const totalEl = document.getElementById('insightsTotalRequests');
+    const successEl = document.getElementById('insightsSuccess');
+    const failureEl = document.getElementById('insightsFailure');
+    const rateEl = document.getElementById('insightsSuccessRate');
+    if (totalEl) totalEl.textContent = total.toLocaleString();
+    if (successEl) successEl.textContent = success.toLocaleString();
+    if (failureEl) failureEl.textContent = failure.toLocaleString();
+    if (rateEl) rateEl.textContent = 'success rate: ' + successRate + '%';
+
+    const apisEl = document.getElementById('insightsApis');
+    if (apisEl) {
+        const apiEntries = Object.entries(usage.apis || {})
+            .map(function(entry) {
+                return { name: entry[0], count: Number(entry[1] || 0) };
+            })
+            .sort(function(a, b) { return b.count - a.count; })
+            .slice(0, 10);
+
+        if (apiEntries.length === 0) {
+            apisEl.innerHTML = '<div class="empty-state"><i data-lucide="activity" style="width:24px;height:24px"></i><p>No API usage yet</p></div>';
+        } else {
+            apisEl.innerHTML = '<div class="settings-list">' + apiEntries.map(function(item) {
+                return '<div class="settings-row"><span class="settings-key">' + escapeHtml(item.name) + '</span><span class="badge badge-default">' + item.count.toLocaleString() + '</span></div>';
+            }).join('') + '</div>';
+        }
+    }
+
+    const byDayEl = document.getElementById('insightsByDay');
+    if (byDayEl) {
+        const dayEntries = Object.entries(usage.requests_by_day || {})
+            .map(function(entry) {
+                return { day: entry[0], count: Number(entry[1] || 0) };
+            })
+            .sort(function(a, b) { return a.day.localeCompare(b.day); });
+
+        if (dayEntries.length === 0) {
+            byDayEl.innerHTML = '<div class="empty-state"><i data-lucide="calendar" style="width:24px;height:24px"></i><p>No daily traffic yet</p></div>';
+        } else {
+            byDayEl.innerHTML = '<div class="settings-list">' + dayEntries.map(function(item) {
+                return '<div class="settings-row"><span class="settings-key">' + escapeHtml(item.day) + '</span><span class="badge badge-default">' + item.count.toLocaleString() + '</span></div>';
+            }).join('') + '</div>';
+        }
+    }
+
     lucide.createIcons();
 }
 
@@ -1222,7 +1592,7 @@ async function loadAccountsData() {
     if (!tbody) return;
 
     if (accountsData.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6"><div class="loading-state"><div class="spinner"></div><p>Loading…</p></div></td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5"><div class="loading-state"><div class="spinner"></div><p>Loading…</p></div></td></tr>';
         await refreshAll();
     }
     
@@ -1239,10 +1609,10 @@ function renderAccountsTable(accounts) {
     if (subtitle) subtitle.textContent = accounts.length + ' account' + (accounts.length !== 1 ? 's' : '');
 
     if (accounts.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6"><div class="empty-state">' +
+        tbody.innerHTML = '<tr><td colspan="5"><div class="empty-state">' +
             '<i data-lucide="inbox" style="width:28px;height:28px"></i>' +
             '<p>No accounts found</p>' +
-            '<small>Run cp-login to add accounts</small>' +
+            '<small>Use Login Account or run cp-login to add accounts</small>' +
             '</div></td></tr>';
         lucide.createIcons();
         if (infoEl) infoEl.textContent = 'No accounts';
@@ -1253,46 +1623,44 @@ function renderAccountsTable(accounts) {
     const paginated = accounts.slice(start, start + PER_PAGE);
 
     tbody.innerHTML = paginated.map(acc => {
-        const initial  = escapeHtml((acc.email || '?')[0].toUpperCase());
-        const isActive = !acc.disabled && !acc.unavailable;
-        const isOfficial = !['antigravity'].includes(acc.type || 'antigravity');
-        const q        = acc.quota;
-        const statusBadge = isActive
-            ? '<span class="badge badge-success"><i data-lucide="check" style="width:10px;height:10px"></i> Active</span>'
-            : '<span class="badge badge-error"><i data-lucide="x" style="width:10px;height:10px"></i> Error</span>';
-            
-        let quotaHtml = '';
-        if (isOfficial) {
-            let modelTags = '';
-            if (acc.models && acc.models.length > 0) {
-                modelTags = acc.models.slice(0, 3).map(m => 
-                    '<span class="badge badge-default" style="font-size:10px;margin-right:2px;margin-bottom:2px;padding:1px 4px;font-family:JetBrains Mono,monospace;">' + escapeHtml(m.name) + '</span>'
-                ).join('');
-                if (acc.models.length > 3) modelTags += '<span style="font-size:10px;color:var(--text-3);">+' + (acc.models.length - 3) + '</span>';
-            } else {
-                modelTags = '<span class="badge badge-default" style="font-family:JetBrains Mono,monospace;font-size:11px;">' + escapeHtml(acc.type || 'external') + '</span>';
-            }
-            quotaHtml = '<td colspan="3">' + modelTags + '</td>';
+        const initial = escapeHtml((acc.email || '?')[0].toUpperCase());
+        const statusMeta = acc.statusMeta || getAccountStatusMeta(acc);
+
+        const statusBadge = '<span class="badge ' + statusMeta.className + '" title="' + escapeHtml(statusMeta.title || '') + '">' +
+            '<i data-lucide="' + statusMeta.icon + '" style="width:10px;height:10px"></i> ' + escapeHtml(statusMeta.label) +
+            '</span>';
+
+        let modelTags = '';
+        if (acc.models && acc.models.length > 0) {
+            modelTags = acc.models.map(function(m) {
+                return '<span class="badge badge-default" style="font-size:10px;margin-right:2px;margin-bottom:2px;padding:1px 4px;font-family:JetBrains Mono,monospace;">' +
+                    escapeHtml(m.name) +
+                    '</span>';
+            }).join('');
         } else {
-            quotaHtml = '<td>' + renderProgress(q?.claude?.remaining) + '</td>' +
-                        '<td>' + renderProgress(q?.geminiPro?.remaining) + '</td>' +
-                        '<td>' + renderProgress(q?.geminiFlash?.remaining) + '</td>';
+            modelTags = '<span class="badge badge-default" style="font-family:JetBrains Mono,monospace;font-size:11px;">' +
+                escapeHtml(acc.provider || acc.type || 'unknown') +
+                '</span>';
         }
+
+        const modelCount = Array.isArray(acc.models) ? acc.models.length : 0;
+        const countBadge = '<span class="badge badge-default" style="font-family:JetBrains Mono,monospace;font-size:11px;">' + modelCount + '</span>';
 
         return '<tr>' +
             '<td><div class="account-cell">' +
                 '<div class="account-avatar">' + initial + '</div>' +
                 '<div>' +
-                    '<div class="account-name">' + escapeHtml(acc.email.split('@')[0]) + '</div>' +
-                    '<div class="account-email">' + escapeHtml(acc.email) + '</div>' +
+                    '<div class="account-name">' + escapeHtml(getAccountPrimaryText(acc)) + '</div>' +
+                    '<div class="account-email">' + escapeHtml(getAccountSecondaryText(acc)) + '</div>' +
                 '</div>' +
             '</div></td>' +
-            quotaHtml +
+            '<td>' + countBadge + '</td>' +
+            '<td>' + modelTags + '</td>' +
             '<td>' + statusBadge + '</td>' +
             '<td>' +
-                '<button class="btn-icon" title="Delete account" ' +
-                        'onclick="deleteAccount(\'' + escapeHtml(acc.id) + '\')">' +
-                    '<i data-lucide="trash-2" style="width:14px;height:14px"></i>' +
+                '<button class="btn-icon" title="Logout account" ' +
+                        'onclick="logoutAccount(' + JSON.stringify(String(acc.id || '')) + ', ' + JSON.stringify(String(acc.email || acc.id || 'this account')) + ')">' +
+                    '<i data-lucide="log-out" style="width:14px;height:14px"></i>' +
                 '</button>' +
             '</td>' +
         '</tr>';
@@ -1307,115 +1675,14 @@ function renderAccountsTable(accounts) {
 
 function filterAccounts() {
     const q        = document.getElementById('accountSearch').value.toLowerCase();
-    const filtered = accountsData.filter(a => a.email?.toLowerCase().includes(q));
+    const filtered = accountsData.filter(a =>
+        (a.email || '').toLowerCase().includes(q) ||
+        (a.provider || '').toLowerCase().includes(q) ||
+        (a.type || '').toLowerCase().includes(q) ||
+        (a.status || '').toLowerCase().includes(q)
+    );
     currentPage = 1;
     renderAccountsTable(filtered);
-}
-
-/* ── Quota Tab ───────────────────────────────────────── */
-function loadQuotaData() {
-    const grid    = document.getElementById('quotaGrid');
-    if (!grid) return;
-
-    const entries = Object.entries(quotaCache.accounts || {});
-
-    if (entries.length === 0) {
-        grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1">' +
-            '<i data-lucide="gauge" style="width:28px;height:28px"></i>' +
-            '<p>No quota data</p>' +
-            '<small>Run quota-fetcher.py to populate</small>' +
-        '</div>';
-        lucide.createIcons();
-        return;
-    }
-
-    grid.innerHTML = entries.map(function(entry) {
-        var id   = entry[0];
-        var data = entry[1];
-        var email   = data.email || id.replace('antigravity-', '').replace('.json', '');
-        var initial = escapeHtml(email[0].toUpperCase());
-        var q       = data.quota || {};
-
-        var isOfficial = !['antigravity'].includes(data.type || 'antigravity');
-        var rows = '';
-
-        if (isOfficial) {
-            // Find account in accountsData to get model list
-            const acc = accountsData.find(a => a.id === 'custom-' + data.name || a.email === data.email);
-            if (acc && acc.models && acc.models.length > 0) {
-                rows = acc.models.map(m => {
-                    return '<div class="quota-row">' +
-                        '<i data-lucide="sparkles" class="quota-row-icon"></i>' +
-                        '<div>' +
-                            '<div class="quota-row-name">' + escapeHtml(m.name) + '</div>' +
-                            '<div class="quota-row-bar">' +
-                                '<div class="quota-row-fill high" style="width:100%"></div>' +
-                            '</div>' +
-                        '</div>' +
-                        '<div class="quota-row-pct high">Active</div>' +
-                    '</div>';
-                }).join('');
-            } else {
-                rows = '<div class="quota-row">' +
-                    '<i data-lucide="check-circle" class="quota-row-icon" style="color:var(--success)"></i>' +
-                    '<div>' +
-                        '<div class="quota-row-name">Status: Available</div>' +
-                        '<div class="quota-row-bar">' +
-                            '<div class="quota-row-fill high" style="width:100%"></div>' +
-                        '</div>' +
-                    '</div>' +
-                    '<div class="quota-row-pct high">Ready</div>' +
-                '</div>' +
-                '<div class="quota-row">' +
-                    '<i data-lucide="server" class="quota-row-icon"></i>' +
-                    '<div>' +
-                        '<div class="quota-row-name">Architecture Provider</div>' +
-                        '<div class="quota-row-bar">' +
-                            '<div class="quota-row-fill high" style="width:100%"></div>' +
-                        '</div>' +
-                    '</div>' +
-                    '<div class="quota-row-pct" style="color:var(--text-1);font-family:JetBrains Mono,monospace;font-size:11px;">' + escapeHtml((data.type || 'external').toUpperCase()) + '</div>' +
-                '</div>';
-            }
-        } else {
-            var items = [
-                { name: 'Claude',     icon: 'brain',    val: q.claude?.remaining },
-                { name: 'Gemini Pro', icon: 'sparkles', val: q.geminiPro?.remaining },
-                { name: 'Flash',      icon: 'zap',      val: q.geminiFlash?.remaining },
-                { name: 'Image',      icon: 'image',    val: q.geminiImage?.remaining },
-            ];
-
-            rows = items.map(function(item) {
-                var pct = item.val != null ? Math.round(item.val * 100) : null;
-                var cls = pct !== null ? (pct >= 50 ? 'high' : pct >= 20 ? 'medium' : 'low') : 'na';
-                return '<div class="quota-row">' +
-                    '<i data-lucide="' + item.icon + '" class="quota-row-icon"></i>' +
-                    '<div>' +
-                        '<div class="quota-row-name">' + escapeHtml(item.name) + '</div>' +
-                        '<div class="quota-row-bar">' +
-                            '<div class="quota-row-fill ' + (cls === 'na' ? '' : cls) + '" style="width:' + (pct || 0) + '%"></div>' +
-                        '</div>' +
-                    '</div>' +
-                    '<div class="quota-row-pct ' + cls + '">' + (pct !== null ? pct + '%' : 'N/A') + '</div>' +
-                '</div>';
-            }).join('');
-        }
-
-        var subName = email.includes('@') ? email : (data.type || 'external').toUpperCase();
-
-        return '<div class="quota-card">' +
-            '<div class="quota-card-header">' +
-                '<div class="quota-avatar">' + initial + '</div>' +
-                '<div>' +
-                    '<div class="quota-email-name">' + escapeHtml(email.split('@')[0]) + '</div>' +
-                    '<div class="quota-email-full">' + escapeHtml(subName) + '</div>' +
-                '</div>' +
-            '</div>' +
-            '<div class="quota-items">' + rows + '</div>' +
-        '</div>';
-    }).join('');
-
-    lucide.createIcons();
 }
 
 /* ── Settings Tab ────────────────────────────────────── */
@@ -1519,9 +1786,15 @@ async function saveConfigEditor() {
         
         if (!resp.ok) throw new Error('HTTP ' + resp.status);
         
-        showToast('Configuration saved and server restarting!', 'success');
+        const result = await resp.json();
+        if (result.backend_ready === false) {
+            showToast('Configuration saved but backend may still be starting...', 'warning');
+        } else {
+            showToast('Configuration saved and server restarted!', 'success');
+        }
         closeConfigEditorModal();
-        setTimeout(() => refreshAll(), 2000);
+        // Backend is already ready, so refresh immediately
+        setTimeout(() => refreshAll(), 500);
     } catch (e) {
         showToast('Failed to save config: ' + e.message, 'error');
     } finally {
@@ -1562,22 +1835,112 @@ function goToPage(page) {
     renderAccountsTable(accountsData);
 }
 
-/* ── Delete Account ──────────────────────────────────── */
-async function deleteAccount(id) {
-    if (!confirm('Delete account "' + id + '"? This cannot be undone.')) return;
+/* ── Account Actions ─────────────────────────────────── */
+async function logoutAccount(id, label) {
+    const name = label || id;
+    const confirmed = confirm(
+        'Logout account "' + name + '"? This removes the shared auth file, so the account will also be signed out from the CLI on this machine.'
+    );
+    if (!confirmed) return;
+    await deleteAccount(id, 'logout');
+}
+
+async function deleteAccount(id, actionLabel) {
+    const verb = actionLabel || 'delete';
+    if (!id) {
+        showToast('Missing account id', 'error');
+        return;
+    }
     try {
         const r = await fetch(API_BASE + '/management/auth-files/' + encodeURIComponent(id), {
             method: 'DELETE',
             headers: { 'X-Management-Key': MANAGEMENT_KEY }
         });
         if (r.ok) {
-            showToast('Account deleted', 'success');
-            loadAccountsData();
+            showToast(verb === 'logout' ? 'Account logged out' : 'Account deleted', 'success');
+            await refreshAll();
+            if (document.getElementById('tab-accounts')?.classList.contains('active')) {
+                renderAccountsTable(accountsData);
+            }
         } else {
             throw new Error('HTTP ' + r.status);
         }
     } catch (err) {
-        showToast('Delete failed: ' + err.message, 'error');
+        showToast((verb === 'logout' ? 'Logout failed: ' : 'Delete failed: ') + err.message, 'error');
+    }
+}
+
+/* ── Login Account Modal ─────────────────────────────── */
+async function openLoginAccountModal() {
+    const modal = document.getElementById('loginAccountModal');
+    const select = document.getElementById('loginProviderSelect');
+    if (!modal || !select) return;
+
+    modal.style.display = 'flex';
+    select.disabled = true;
+    select.innerHTML = '<option value="">Loading providers…</option>';
+    lucide.createIcons();
+
+    try {
+        const resp = await fetch('/api/system/login-providers', {
+            headers: { 'X-Management-Key': MANAGEMENT_KEY }
+        });
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        const data = await resp.json();
+        const providers = Array.isArray(data.providers) ? data.providers : [];
+        select.innerHTML = '<option value="">Select provider…</option>' + providers.map(function(provider) {
+            return '<option value="' + escapeHtml(provider.id) + '">' + escapeHtml(provider.label) + '</option>';
+        }).join('');
+        select.disabled = false;
+    } catch (err) {
+        select.innerHTML = '<option value="">Failed to load providers</option>';
+        showToast('Failed to load providers: ' + err.message, 'error');
+    }
+}
+
+function closeLoginAccountModal() {
+    const modal = document.getElementById('loginAccountModal');
+    const select = document.getElementById('loginProviderSelect');
+    if (modal) modal.style.display = 'none';
+    if (select) select.value = '';
+}
+
+async function submitLoginAccount() {
+    const select = document.getElementById('loginProviderSelect');
+    const btn = document.getElementById('loginAccountBtn');
+    if (!select || !btn) return;
+
+    const provider = select.value.trim();
+    if (!provider) {
+        showToast('Select a provider first', 'error');
+        return;
+    }
+
+    const originalText = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<div class="spinner" style="width:14px;height:14px;border-width:2px;margin-right:6px"></div> Starting...';
+
+    try {
+        const resp = await fetch('/api/system/login', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Management-Key': MANAGEMENT_KEY
+            },
+            body: JSON.stringify({ provider: provider })
+        });
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+
+        const data = await resp.json();
+        showToast(data.message || 'Login flow started', 'success');
+        closeLoginAccountModal();
+        setTimeout(function() { refreshAll(); }, 2000);
+    } catch (err) {
+        showToast('Login failed: ' + err.message, 'error');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+        lucide.createIcons();
     }
 }
 
@@ -1655,20 +2018,6 @@ async function sysAction(action) {
 }
 
 /* ── Helpers ─────────────────────────────────────────── */
-function renderProgress(val) {
-    if (val == null) {
-        return '<span style="font-size:11.5px;color:var(--text-3);font-family:JetBrains Mono,monospace">N/A</span>';
-    }
-    const pct = Math.round(val * 100);
-    const cls = pct >= 50 ? 'high' : pct >= 20 ? 'medium' : 'low';
-    return '<div class="progress-cell">' +
-        '<div class="progress-track">' +
-            '<div class="progress-fill ' + cls + '" style="width:' + pct + '%"></div>' +
-        '</div>' +
-        '<span class="progress-text">' + pct + '%</span>' +
-    '</div>';
-}
-
 function escapeHtml(str) {
     return String(str)
         .replace(/&/g, '&amp;')

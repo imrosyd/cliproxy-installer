@@ -1,6 +1,15 @@
 #!/bin/bash
 
-# CLIProxy Dashboard Launcher
+# ── Colors ──
+GREEN='\033[0;32m'
+RED='\033[0;31m'
+YELLOW='\033[1;33m'
+CYAN='\033[0;36m'
+BOLD='\033[1m'
+DIM='\033[2m'
+NC='\033[0m'
+
+# ── CLIProxy Dashboard Launcher ──
 # Checks if server is running, starts if needed, then opens dashboard
 
 # Add timestamp to force cache busting
@@ -8,7 +17,7 @@ TIMESTAMP=$(date +%s)
 DASHBOARD_URL="http://localhost:8317/dashboard.html?v=$TIMESTAMP"
 PORT=8317
 
-echo "🔮 CLIProxy Dashboard Launcher"
+echo -e "${CYAN}${BOLD}  ══  CLIProxy Dashboard  ══${NC}"
 echo ""
 
 # Portable port check: tries ss, then netstat, then lsof
@@ -31,49 +40,49 @@ check_port() {
 
 # Check if server is already running
 if check_port $PORT; then
-    echo "✅ Server already running on port $PORT"
+    echo -e "${GREEN}[OK] Server already running on port $PORT${NC}"
 else
-    echo "⚠️  Server not running, starting now..."
+    echo -e "${YELLOW}[!] Server not running, starting now...${NC}"
     
     # Determine start command
     CP_START_CMD=""
     if command -v cp-start >/dev/null 2>&1; then
         CP_START_CMD="cp-start"
-    elif [ -x "$HOME/.cli-proxy-api/scripts/start.sh" ]; then
-        CP_START_CMD="$HOME/.cli-proxy-api/scripts/start.sh"
+    elif [ -x "$HOME/.cliproxyapi/scripts/start.sh" ]; then
+        CP_START_CMD="$HOME/.cliproxyapi/scripts/start.sh"
     fi
 
     if [ -n "$CP_START_CMD" ]; then
         "$CP_START_CMD" >/dev/null 2>&1 &
-        echo "⏳ Waiting for server to start..."
+        echo -e "${YELLOW}Waiting for server to start...${NC}"
         
         # Wait up to 10 seconds for server to start
         for i in {1..10}; do
             sleep 1
             if check_port $PORT; then
-                echo "✅ Server started successfully"
+                echo -e "${GREEN}[OK] Server started successfully${NC}"
                 break
             fi
             if [ $i -eq 10 ]; then
-                echo "❌ Server failed to start. Please check logs."
+                echo -e "${RED}[ERROR] Server failed to start. Please check logs.${NC}"
                 exit 1
             fi
         done
     else
-        echo "❌ cp-start command not found. Please install CLIProxy first."
+        echo -e "${RED}[ERROR] cp-start command not found. Please install CLIProxy first.${NC}"
         exit 1
     fi
 fi
 
-QUOTA_FETCHER="$HOME/.cli-proxy-api/scripts/quota-fetcher.py"
+QUOTA_FETCHER="$HOME/.cliproxyapi/scripts/quota-fetcher.py"
 if [ -f "$QUOTA_FETCHER" ] && command -v python3 >/dev/null 2>&1; then
-    echo "🔄 Fetching quota data..."
+    echo -e "${YELLOW}Fetching quota data...${NC}"
     python3 "$QUOTA_FETCHER" 2>/dev/null
-    echo "✅ Quota data updated."
+    echo -e "${GREEN}[OK] Quota data updated.${NC}"
 fi
 
 echo ""
-echo "🌐 Opening dashboard: $DASHBOARD_URL"
+echo -e "${YELLOW}Opening dashboard: ${BOLD}$DASHBOARD_URL${NC}"
 echo ""
 
 # Open dashboard in default browser
@@ -93,4 +102,4 @@ else
     echo "Please open manually: $DASHBOARD_URL"
 fi
 
-echo "✨ Dashboard opened successfully!"
+echo -e "${GREEN}[OK] Dashboard opened successfully!${NC}"

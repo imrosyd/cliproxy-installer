@@ -13,14 +13,14 @@ import requests
 from datetime import datetime
 
 # Configuration
-AUTH_DIR = os.path.expanduser("~/.cli-proxy-api")
+AUTH_DIR = os.path.expanduser("~/.cliproxyapi")
 STATIC_DIR = os.path.join(AUTH_DIR, "static")
 DASHBOARD_FILE = os.path.join(STATIC_DIR, "dashboard.html")
 ANTIGRAVITY_API = "https://daily-cloudcode-pa.sandbox.googleapis.com/v1internal:fetchAvailableModels"
 USER_AGENT = "antigravity/1.11.5 windows/amd64"
 REFRESH_INTERVAL = 30  # seconds
 
-# OAuth credentials — read from environment or ~/.cli-proxy-api/.credentials
+# OAuth credentials — read from environment or ~/.cliproxyapi/.credentials
 # Set CLIPROXY_OAUTH_CLIENT_ID and CLIPROXY_OAUTH_CLIENT_SECRET in your environment
 # to override the bundled defaults (recommended for shared/public environments).
 def _load_oauth_credentials():
@@ -41,10 +41,10 @@ def _load_oauth_credentials():
 
     # Fall back to the public Antigravity app credentials
     if not client_id:
-        # REQUIRED: Set CLIPROXY_OAUTH_CLIENT_ID or provide in ~/.cli-proxy-api/.credentials
+        # REQUIRED: Set CLIPROXY_OAUTH_CLIENT_ID or provide in ~/.cliproxyapi/.credentials
         client_id = "" 
     if not client_secret:
-        # REQUIRED: Set CLIPROXY_OAUTH_CLIENT_SECRET or provide in ~/.cli-proxy-api/.credentials
+        # REQUIRED: Set CLIPROXY_OAUTH_CLIENT_SECRET or provide in ~/.cliproxyapi/.credentials
         client_secret = ""
 
     return client_id, client_secret

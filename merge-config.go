@@ -72,8 +72,8 @@ func main() {
 			fmt.Printf("Error writing config: %v\n", err)
 			os.Exit(1)
 		}
-		fmt.Printf("✓ Merged %d new models into config\n", addedCount)
+		fmt.Printf("[OK] Merged %d new models into config\n", addedCount)
 	} else {
-		fmt.Println("✓ No new models to add - all models already exist")
+		fmt.Println("[OK] No new models to add - all models already exist")
 	}
 }

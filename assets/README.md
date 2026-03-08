@@ -58,8 +58,8 @@ These assets are automatically installed when you run the main installer:
 ```
 
 The installer will:
-1. Copy `dashboard.html` to `~/.cli-proxy-api/static/dashboard.html`
-2. Install helper scripts to `~/.cli-proxy-api/scripts/`
+1. Copy `dashboard.html` to `~/.cliproxyapi/static/dashboard.html`
+2. Install helper scripts to `~/.cliproxyapi/scripts/`
 3. Create aliases: `cp-db`, `cp-claude`, `cp-update`, etc.
 
 ## Usage

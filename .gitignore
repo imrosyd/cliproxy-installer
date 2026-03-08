@@ -53,3 +53,13 @@ verify_hash.go
 # OS / Misc
 *.exe
 *.log
+
+# Sensitive / credentials — never commit these
+.credentials
+*.credentials
+config.yaml
+auth-*.json
+*-auth.json
+quota-cache.json
+.env
+.env.*

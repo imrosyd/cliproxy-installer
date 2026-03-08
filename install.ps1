@@ -10,21 +10,21 @@ param(
     [switch]$Update
 )
 
-# --- Configuration & Paths ---
+# ── Configuration & Paths ──
 $RepoUrl = "https://github.com/router-for-me/CLIProxyAPIPlus.git"
-$BinDir = "$env:USERPROFILE\bin"
-$ConfigDir = "$env:USERPROFILE\.cli-proxy-api"
+$ConfigDir = "$env:USERPROFILE\.cliproxyapi"
+$BinDir = "$ConfigDir\bin"
 $ScriptsDir = "$ConfigDir\scripts"
 $DroidConfigFile = "$env:USERPROFILE\.factory\config.json"
 $PowerShellProfile = $PROFILE
 
-# --- Colors ---
+# ── Colors ──
 function Write-Green { param($Text) Write-Host $Text -ForegroundColor Green }
 function Write-Yellow { param($Text) Write-Host $Text -ForegroundColor Yellow }
 function Write-Red { param($Text) Write-Host $Text -ForegroundColor Red }
 function Write-Cyan { param($Text) Write-Host $Text -ForegroundColor Cyan }
 
-# --- Helper Functions ---
+# ── Helper Functions ──
 
 function Check-Dependencies {
     $missing = $false
@@ -64,7 +64,7 @@ function cp-start { & "$ScriptsDir\start.ps1" }
 function cp-login { & "$ScriptsDir\login.ps1" }
 function cp-update {
     Write-Host "Updating CLIProxy..."
-    Invoke-WebRequest -Uri "https://raw.githubusercontent.com/khmuhtadin/cliproxy-installer/main/install.ps1" -OutFile "$env:TEMP\install.ps1"
+    Invoke-WebRequest -Uri "https://raw.githubusercontent.com/imrosyd/cliproxy-installer/main/install.ps1" -OutFile "$env:TEMP\install.ps1"
     powershell -ExecutionPolicy Bypass -File "$env:TEMP\install.ps1" -Update
 }
 "@
@@ -93,6 +93,13 @@ function Install-CLIProxy {
 
     Write-Yellow ">>> Starting CLIProxy Installation..."
 
+    # Clean legacy directory from previous naming convention.
+    $LegacyConfigDir = "$env:USERPROFILE\.cli-proxy-api"
+    if (Test-Path $LegacyConfigDir) {
+        Remove-Item -Recurse -Force $LegacyConfigDir -ErrorAction SilentlyContinue
+        Write-Yellow "[!] Removed legacy directory: $LegacyConfigDir"
+    }
+
     # Create Dirs
     New-Item -ItemType Directory -Force -Path $BinDir | Out-Null
     New-Item -ItemType Directory -Force -Path $ConfigDir | Out-Null
@@ -103,7 +110,7 @@ function Install-CLIProxy {
     New-Item -ItemType Directory -Force -Path $StaticDir | Out-Null
 
     # Install enhanced dashboard
-    Write-Host "📊 Installing enhanced dashboard..."
+    Write-Host "Installing enhanced dashboard..."
     $DashboardSrc = Join-Path (Split-Path $PSCommandPath) "assets\static\dashboard.html"
     if (Test-Path $DashboardSrc) {
         Copy-Item $DashboardSrc "$StaticDir\dashboard.html" -Force
@@ -111,7 +118,7 @@ function Install-CLIProxy {
     } else {
         # Fallback: download from GitHub
         try {
-            Invoke-WebRequest -Uri "https://raw.githubusercontent.com/khmuhtadin/cliproxy-installer/main/assets/static/dashboard.html" -OutFile "$StaticDir\dashboard.html" -ErrorAction Stop
+            Invoke-WebRequest -Uri "https://raw.githubusercontent.com/imrosyd/cliproxy-installer/main/assets/static/dashboard.html" -OutFile "$StaticDir\dashboard.html" -ErrorAction Stop
             Write-Green "[OK] Dashboard downloaded from GitHub"
         } catch {
             Write-Yellow "[!] Could not install dashboard"
@@ -119,7 +126,7 @@ function Install-CLIProxy {
     }
 
     # Install cp-db command (PowerShell function)
-    Write-Host "🔮 Installing cp-db shortcut..."
+    Write-Host "Installing cp-db shortcut..."
     $CpDbSrc = Join-Path (Split-Path $PSCommandPath) "assets\scripts\cp-db.ps1"
     $CpDbDest = "$ScriptsDir\cp-db.ps1"
     if (Test-Path $CpDbSrc) {
@@ -128,7 +135,7 @@ function Install-CLIProxy {
     } else {
         # Fallback: download from GitHub
         try {
-            Invoke-WebRequest -Uri "https://raw.githubusercontent.com/khmuhtadin/cliproxy-installer/main/assets/scripts/cp-db.ps1" -OutFile $CpDbDest -ErrorAction Stop
+            Invoke-WebRequest -Uri "https://raw.githubusercontent.com/imrosyd/cliproxy-installer/main/assets/scripts/cp-db.ps1" -OutFile $CpDbDest -ErrorAction Stop
             Write-Green "[OK] cp-db downloaded from GitHub"
         } catch {
             Write-Yellow "[!] Could not install cp-db command"
@@ -158,7 +165,7 @@ function Install-CLIProxy {
     Write-Host "Building binary..."
     Push-Location $TempDir
     try {
-        go build -o cliproxyapi-plus.exe ./cmd/server
+        go build -o cliproxyapi.exe ./cmd/server
         if ($LASTEXITCODE -ne 0) {
             throw "Go build failed"
         }
@@ -169,7 +176,7 @@ function Install-CLIProxy {
         exit 1
     }
 
-    Move-Item -Force -Path "cliproxyapi-plus.exe" -Destination "$BinDir\cliproxyapi-plus.exe"
+    Move-Item -Force -Path "cliproxyapi.exe" -Destination "$BinDir\cliproxyapi.exe"
     Pop-Location
     Remove-Item -Recurse -Force $TempDir
 
@@ -179,9 +186,8 @@ function Install-CLIProxy {
     if (-not (Test-Path "$ConfigDir\config.yaml")) {
         # Ask for optional baseURL and apiKey configuration
         Write-Host ""
-        Write-Yellow "========================================"
-        Write-Yellow "   Optional: Custom Base URL & API Key"
-        Write-Yellow "========================================"
+        Write-Yellow "  ══  Optional: Custom Base URL & API Key  ══"
+        Write-Host ""
         Write-Host "You can configure a custom base URL and API key now."
         Write-Host "This is useful if you want to use a different proxy endpoint."
         Write-Host ""
@@ -239,19 +245,17 @@ quota-exceeded:
     # 1. Start Script
     $startScript = @"
 Write-Host "Starting CLIProxy on http://localhost:8317"
-& "$BinDir\cliproxyapi-plus.exe" --config "$ConfigDir\config.yaml"
+& "$BinDir\cliproxyapi.exe" --config "$ConfigDir\config.yaml"
 "@
     Set-Content -Path "$ScriptsDir\start.ps1" -Value $startScript
 
     # 2. Login Script
     $loginScript = @"
-`$Binary = "$BinDir\cliproxyapi-plus.exe"
+`$Binary = "$BinDir\cliproxyapi.exe"
 `$Config = "$ConfigDir\config.yaml"
 
 Clear-Host
-Write-Host "========================================="
-Write-Host "   CLIProxy Login - Select Provider"
-Write-Host "========================================="
+Write-Cyan "  ══  CLIProxy Login - Select Provider  ══"
 Write-Host ""
 Write-Host "1. Antigravity (Claude/Gemini)"
 Write-Host "2. GitHub Copilot"
@@ -280,7 +284,7 @@ switch (`$choice) {
 "@
     Set-Content -Path "$ScriptsDir\login.ps1" -Value $loginScript
 
-    # --- Droid Config Injection (Smart Merge) ---
+    # ── Droid Config Injection (Smart Merge) ──
     Write-Yellow "Checking Droid configuration..."
 
     # Ensure directory exists
@@ -354,16 +358,14 @@ switch (`$choice) {
 
     Setup-Shortcuts
 
-    Write-Green "========================================"
-    Write-Green "  INSTALLATION SUCCESS!"
-    Write-Green "========================================"
+    Write-Green "  ══  Installation Success!  ══"
     Write-Host "Please restart your PowerShell terminal to use shortcuts:"
     Write-Cyan "  1. Login:  cp-login"
     Write-Cyan "  2. Start:  cp-start"
     Write-Cyan "  3. Update: cp-update"
 }
 
-# --- Execution Flow ---
+# ── Execution Flow ──
 
 if ($Update) {
     Install-CLIProxy
@@ -371,9 +373,7 @@ if ($Update) {
 }
 
 Clear-Host
-Write-Cyan "========================================"
-Write-Cyan "   CLIProxy Windows Installer Manager"
-Write-Cyan "========================================"
+Write-Cyan "  ══  CLIProxy Windows Installer  ══"
 Write-Host ""
 Write-Host "1. Install / Update CLIProxy Core"
 Write-Host "2. Exit"
