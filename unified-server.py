@@ -756,6 +756,44 @@ LOGIN_PROVIDERS = {
     'kiro': '-kiro-login',
 }
 
+_login_state_lock = threading.Lock()
+_login_state = {}
+_device_code_re = re.compile(r'\b[A-Z0-9]{4}-[A-Z0-9]{4}\b')
+_url_re = re.compile(r'https?://[^\s)\]"]+')
+
+def _set_login_state(provider, **kwargs):
+    with _login_state_lock:
+        state = _login_state.get(provider, {})
+        state.update(kwargs)
+        _login_state[provider] = state
+        return dict(state)
+
+def _get_login_state(provider):
+    with _login_state_lock:
+        return dict(_login_state.get(provider, {}))
+
+def _monitor_login_process(provider, process):
+    try:
+        if process.stdout is not None:
+            for line in process.stdout:
+                text = line.strip()
+                if not text:
+                    continue
+                code_match = _device_code_re.search(text)
+                url_match = _url_re.search(text)
+                updates = {}
+                if code_match:
+                    updates['device_code'] = code_match.group(0)
+                if url_match:
+                    updates['verification_url'] = url_match.group(0)
+                if updates:
+                    _set_login_state(provider, **updates)
+    except Exception as e:
+        _set_login_state(provider, error=str(e))
+    finally:
+        rc = process.poll()
+        _set_login_state(provider, running=False, exit_code=rc)
+
 # ── Usage Statistics Tracking ──────────────────────────────────────────────────
 _usage_stats = {
     "total_requests": 0,
@@ -1091,6 +1129,89 @@ def _set_auth_file_disabled_by_id(account_id: str, disabled: bool) -> bool:
         return False
 
 
+def _remove_provider_from_config(provider_name: str) -> bool:
+    """Remove a named provider from the openai-compatibility section in config.yaml."""
+    provider_name = (provider_name or '').strip()
+    if not provider_name:
+        return False
+
+    config_path = os.path.expanduser('~/.cliproxyapi/config.yaml')
+    if not os.path.exists(config_path):
+        return False
+
+    try:
+        with open(config_path, 'r') as f:
+            lines = f.readlines()
+    except Exception:
+        return False
+
+    # Find the provider block and remove it.
+    # Strategy: scan line by line tracking which openai-compatibility provider we are inside.
+    new_lines = []
+    in_compat = False
+    skip_block = False
+    # indent of the current provider entry (the "  - name:" line)
+    block_indent: int | None = None
+    found = False
+
+    for raw in lines:
+        line = raw.rstrip('\n')
+        stripped = line.lstrip()
+
+        # Detect openai-compatibility section start
+        if re.match(r'^openai-compatibility\s*:', line):
+            in_compat = True
+            if not skip_block:
+                new_lines.append(raw)
+            continue
+
+        # A top-level key (no indent) other than openai-compatibility ends the section
+        if in_compat and line and not line[0].isspace():
+            in_compat = False
+            skip_block = False
+            block_indent = None
+
+        if in_compat:
+            indent = len(line) - len(stripped)
+
+            # Detect a new provider entry line: "  - name: ..."
+            if indent == 2 and stripped.startswith('- name:'):
+                entry_name = stripped.split(':', 1)[1].strip().strip('"\'')
+                if entry_name == provider_name:
+                    skip_block = True
+                    block_indent = indent
+                    found = True
+                    continue  # skip this line
+                else:
+                    # Previous skip block ended — a new provider starts
+                    skip_block = False
+                    block_indent = None
+
+            if skip_block:
+                # Skip all lines that belong to this provider block
+                # (deeper indented lines, or empty lines within the block)
+                if stripped == '' or (len(line) - len(stripped)) > (block_indent or 2):
+                    continue
+                else:
+                    # Non-empty line at same or lower indent ends the block
+                    skip_block = False
+                    block_indent = None
+                    # This line belongs to something else — don't skip it
+
+        new_lines.append(raw)
+
+    if not found:
+        return False
+
+    # Remove trailing empty lines before end of openai-compatibility section
+    # (to avoid leaving a dangling empty block)
+    with _config_write_lock:
+        with open(config_path, 'w') as f:
+            f.writelines(new_lines)
+
+    return True
+
+
 def _cleanup_once():
     """Run cleanup once, even if called by both signal and atexit handlers."""
     global _cleanup_done
@@ -1146,13 +1267,37 @@ def launch_provider_login(provider):
     if not os.path.exists(CONFIG_PATH):
         raise FileNotFoundError(f"Config not found: {CONFIG_PATH}")
 
-    process = subprocess.Popen(
-        [CLIPROXY_PATH, '-config', CONFIG_PATH, login_flag],
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-        stdin=subprocess.DEVNULL,
-        start_new_session=True,
-    )
+    capture_output = provider == 'github-copilot'
+    kwargs = {
+        'stdin': subprocess.DEVNULL,
+        'start_new_session': True,
+    }
+    if capture_output:
+        kwargs.update({
+            'stdout': subprocess.PIPE,
+            'stderr': subprocess.STDOUT,
+            'text': True,
+            'bufsize': 1,
+        })
+    else:
+        kwargs.update({
+            'stdout': subprocess.DEVNULL,
+            'stderr': subprocess.DEVNULL,
+        })
+
+    process = subprocess.Popen([CLIPROXY_PATH, '-config', CONFIG_PATH, login_flag], **kwargs)
+    if capture_output:
+        _set_login_state(
+            provider,
+            pid=process.pid,
+            running=True,
+            started_at=int(time.time()),
+            device_code='',
+            verification_url='',
+            exit_code=None,
+            error=''
+        )
+        threading.Thread(target=_monitor_login_process, args=(provider, process), daemon=True).start()
     return process.pid
 
 class UnifiedHandler(http.server.SimpleHTTPRequestHandler):
@@ -1215,6 +1360,8 @@ class UnifiedHandler(http.server.SimpleHTTPRequestHandler):
     def do_DELETE(self):
         if self.path.startswith('/v0/') or self.path.startswith('/v1/'):
             self.proxy_request('DELETE')
+        elif self.path.startswith('/api/system/'):
+            self.handle_system_api('DELETE')
         else:
             self.send_error(404)
 
@@ -1272,6 +1419,19 @@ class UnifiedHandler(http.server.SimpleHTTPRequestHandler):
                 {"id": "iflow", "label": "iFlow"},
             ]
             self._write_json({"providers": providers})
+        elif self.path.startswith('/api/system/login-state') and method == 'GET':
+            parsed = urllib.parse.urlparse(self.path)
+            qs = urllib.parse.parse_qs(parsed.query)
+            provider = str((qs.get('provider') or [''])[0]).strip()
+            if not provider:
+                self.send_error(400, "Missing provider")
+                return
+            state = _get_login_state(provider)
+            if not state:
+                state = {"provider": provider, "running": False}
+            else:
+                state['provider'] = provider
+            self._write_json(state)
         elif self.path == '/api/system/login' and method == 'POST':
             try:
                 content_length = int(self.headers.get('Content-Length', 0))
@@ -1363,6 +1523,18 @@ class UnifiedHandler(http.server.SimpleHTTPRequestHandler):
                     f.write(append_str)
                     
                 self._write_json({"status": "success"})
+            except Exception as e:
+                self.send_error(500, str(e))
+        elif self.path.startswith('/api/system/remove-provider/') and method == 'DELETE':
+            try:
+                provider_name = urllib.parse.unquote(self.path[len('/api/system/remove-provider/'):]).strip()
+                if not provider_name:
+                    self._write_json({"error": "Missing provider name"}, status=400)
+                    return
+                if _remove_provider_from_config(provider_name):
+                    self._write_json({"status": "removed", "name": provider_name})
+                else:
+                    self._write_json({"error": "Provider not found"}, status=404)
             except Exception as e:
                 self.send_error(500, str(e))
         elif self.path == '/api/system/raw-config' and method == 'GET':
