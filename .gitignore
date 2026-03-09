@@ -45,16 +45,16 @@ UPDATES_*.md
 __pycache__/
 *.py[cod]
 
-# Go
+# Go (local scripts)
 merge-config.go
 plan.go
 verify_hash.go
 
-# OS / Misc
+# Logs / binaries
 *.exe
 *.log
 
-# Sensitive / credentials — never commit these
+# Sensitive / credentials — never commit
 .credentials
 *.credentials
 config.yaml
@@ -63,3 +63,28 @@ auth-*.json
 quota-cache.json
 .env
 .env.*
+
+# Claude AI agent
+.claude/*
+.claude-cache/*
+.claude_tmp/*
+.claude_logs/*
+.claude-state/*
+.claude_sessions/*
+.claude_workspace/*
+.claude_artifacts/*
+.claude_output/
+
+# AI / LLM cache
+.llm-cache/
+.agent-cache/
+.ai-cache/
+
+# Session / runs
+.sessions/
+.runs/
+
+# Temporary workspace
+tmp/
+temp/
+.cache/

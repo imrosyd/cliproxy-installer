@@ -232,7 +232,6 @@
         .status-dot.checking { background: var(--warning);  animation: none; }
 
         .status-label { font-size: 11.5px; font-weight: 500; }
-        .status-port  { font-size: 10.5px; color: var(--text-3); font-family: 'JetBrains Mono', monospace; }
 
         .theme-toggle-btn {
             display: flex;
@@ -632,6 +631,59 @@
         }
         .btn-icon:hover { background: var(--error-bg); color: var(--error); }
 
+        /* ── Toggle Switch ───────────────────────── */
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 36px;
+            height: 20px;
+            flex-shrink: 0;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+            position: absolute;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: var(--bg-elevated);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            transition: background-color 0.25s, border-color 0.25s;
+        }
+
+        .toggle-slider::before {
+            content: '';
+            position: absolute;
+            height: 14px;
+            width: 14px;
+            left: 2px;
+            bottom: 2px;
+            background-color: var(--text-3);
+            border-radius: 50%;
+            transition: transform 0.25s, background-color 0.25s;
+        }
+
+        .toggle-switch input:checked + .toggle-slider {
+            background-color: var(--success-bg);
+            border-color: var(--success);
+        }
+
+        .toggle-switch input:checked + .toggle-slider::before {
+            transform: translateX(16px);
+            background-color: var(--success);
+        }
+
+        .toggle-switch input:disabled + .toggle-slider {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
         /* ── Info row ────────────────────────────── */
         .info-row {
             display: flex;
@@ -720,7 +772,6 @@
             <div class="status-dot checking pulsing" id="serverStatusDot"></div>
             <div>
                 <div class="status-label" id="serverStatusText">Checking…</div>
-                <div class="status-port">:8317</div>
             </div>
         </div>
         <button class="theme-toggle-btn" onclick="toggleTheme()">
@@ -905,6 +956,7 @@
                         <th>Count</th>
                         <th>Models</th>
                         <th>Status</th>
+                        <th>Action</th>
                         <th></th>
                     </tr>
                 </thead>
@@ -1120,7 +1172,7 @@ async function checkServerStatus() {
     const dot  = document.getElementById('serverStatusDot');
     const text = document.getElementById('serverStatusText');
     try {
-        const resp = await fetch('http://localhost:8317/health', {
+        const resp = await fetch('/health', {
             signal: typeof AbortSignal.timeout === 'function'
                 ? AbortSignal.timeout(4000)
                 : undefined
@@ -1162,7 +1214,7 @@ async function refreshAll() {
 
         let runtimeModelsPayload = {};
         try {
-            const runtimeResp = await fetch('http://localhost:8317/v1/models', {
+            const runtimeResp = await fetch('/v1/models', {
                 headers: { 'Authorization': 'Bearer ' + MANAGEMENT_KEY }
             });
             if (runtimeResp.ok) runtimeModelsPayload = await runtimeResp.json();
@@ -1658,6 +1710,14 @@ function renderAccountsTable(accounts) {
             '<td>' + modelTags + '</td>' +
             '<td>' + statusBadge + '</td>' +
             '<td>' +
+                '<label class="toggle-switch" title="' + (acc.disabled ? 'Enable account' : 'Disable account') + '">' +
+                    '<input type="checkbox" ' + (acc.disabled ? '' : 'checked') +
+                        ' onchange="toggleAccountStatus(' + JSON.stringify(String(acc.id || '')) + ', this.checked, this)"' +
+                        (String(acc.type || '').toLowerCase() === 'custom' ? ' disabled' : '') + '>' +
+                    '<span class="toggle-slider"></span>' +
+                '</label>' +
+            '</td>' +
+            '<td>' +
                 '<button class="btn-icon" title="Logout account" ' +
                         'onclick="logoutAccount(' + JSON.stringify(String(acc.id || '')) + ', ' + JSON.stringify(String(acc.email || acc.id || 'this account')) + ')">' +
                     '<i data-lucide="log-out" style="width:14px;height:14px"></i>' +
@@ -1752,7 +1812,7 @@ async function openConfigEditorModal() {
     lucide.createIcons();
     
     try {
-        const resp = await fetch('http://localhost:8317/api/system/raw-config');
+        const resp = await fetch('/api/system/raw-config');
         if (!resp.ok) throw new Error('HTTP ' + resp.status);
         const data = await resp.json();
         
@@ -1778,7 +1838,7 @@ async function saveConfigEditor() {
     btn.innerHTML = '<div class="spinner" style="width:14px;height:14px;border-width:2px;margin-right:6px"></div> Saving...';
     
     try {
-        const resp = await fetch('http://localhost:8317/api/system/raw-config', {
+        const resp = await fetch('/api/system/raw-config', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ yaml: textarea.value })
@@ -1836,6 +1896,53 @@ function goToPage(page) {
 }
 
 /* ── Account Actions ─────────────────────────────────── */
+async function toggleAccountStatus(id, checked, el) {
+    if (!id) {
+        showToast('Missing account id', 'error');
+        return;
+    }
+
+    // Disable the toggle while the request is in flight
+    if (el) el.disabled = true;
+
+    try {
+        const resp = await fetch(API_BASE + '/management/auth-files/' + encodeURIComponent(id), {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Management-Key': MANAGEMENT_KEY
+            },
+            body: JSON.stringify({ enabled: checked })
+        });
+
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+
+        const result = await resp.json();
+
+        // Update local state so UI stays in sync without a full refresh
+        const acc = accountsData.find(a => String(a.id) === String(id));
+        if (acc) {
+            acc.disabled = !checked;
+            acc.status = checked ? 'active' : 'disabled';
+            acc.status_message = checked ? '' : 'Disabled from dashboard';
+            acc.statusMeta = getAccountStatusMeta(acc);
+        }
+
+        showToast(checked ? 'Account enabled' : 'Account disabled', 'success');
+
+        // Update stats and re-render the table
+        updateDashboardStats();
+        renderAccountsTable(accountsData);
+
+    } catch (err) {
+        showToast('Toggle failed: ' + err.message, 'error');
+        // Revert the checkbox on failure
+        if (el) el.checked = !checked;
+    } finally {
+        if (el) el.disabled = false;
+    }
+}
+
 async function logoutAccount(id, label) {
     const name = label || id;
     const confirmed = confirm(

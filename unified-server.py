@@ -1052,6 +1052,45 @@ def _delete_auth_file_by_id(account_id: str) -> bool:
         return False
 
 
+def _set_auth_file_disabled_by_id(account_id: str, disabled: bool) -> bool:
+    """Update disabled/status fields in an auth JSON file by relative id."""
+    account_id = urllib.parse.unquote(account_id or '').strip()
+    if not account_id:
+        return False
+
+    auth_dir = os.path.abspath(_get_auth_dir())
+    safe_rel = os.path.normpath(account_id)
+    if os.path.isabs(safe_rel) or safe_rel.startswith('..'):
+        return False
+
+    target = os.path.abspath(os.path.join(auth_dir, safe_rel))
+    if target != auth_dir and not target.startswith(auth_dir + os.sep):
+        return False
+
+    if not os.path.exists(target):
+        return False
+
+    try:
+        with open(target, 'r') as f:
+            data = json.load(f)
+        if not isinstance(data, dict):
+            return False
+
+        data['disabled'] = bool(disabled)
+        data['status'] = 'disabled' if disabled else 'active'
+        if disabled:
+            data['status_message'] = 'Disabled from dashboard'
+        else:
+            data['status_message'] = ''
+
+        with open(target, 'w') as f:
+            json.dump(data, f, indent=2)
+            f.write('\n')
+        return True
+    except Exception:
+        return False
+
+
 def _cleanup_once():
     """Run cleanup once, even if called by both signal and atexit handlers."""
     global _cleanup_done
@@ -1392,6 +1431,28 @@ class UnifiedHandler(http.server.SimpleHTTPRequestHandler):
             account_id = path_only[len('/v0/management/auth-files/'):]
             if _delete_auth_file_by_id(account_id):
                 self._write_json({"status": "deleted", "id": urllib.parse.unquote(account_id)})
+            else:
+                self._write_json({"error": "Account not found"}, status=404)
+            return
+
+        if path_only.startswith('/v0/management/auth-files/') and method == 'PUT':
+            account_id = path_only[len('/v0/management/auth-files/'):]
+            try:
+                content_length = int(self.headers.get('Content-Length', 0))
+                put_data = self.rfile.read(content_length) if content_length > 0 else b'{}'
+                payload = json.loads(put_data.decode('utf-8') or '{}')
+                enabled = bool(payload.get('enabled', True))
+            except Exception:
+                self._write_json({"error": "Invalid request payload"}, status=400)
+                return
+
+            if _set_auth_file_disabled_by_id(account_id, not enabled):
+                self._write_json({
+                    "status": "updated",
+                    "id": urllib.parse.unquote(account_id),
+                    "enabled": enabled,
+                    "disabled": not enabled,
+                })
             else:
                 self._write_json({"error": "Account not found"}, status=404)
             return
