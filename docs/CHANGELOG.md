@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [2.0.1] - 2026-03-09
+
+### Added
+- `cp-kilo` — KiloCode launcher via CLIProxy (npm install -g @kilocode/cli)
+
+---
+
 ## [2.0.0] - 2026-03-08
 
 ### Added
@@ -108,4 +115,4 @@ All notable changes to this project will be documented in this file.
 - Unified proxy server on port 8317, backend on port 8316
 - Web Dashboard with accounts, settings, and config editor
 - Supported providers: Antigravity, GitHub Copilot, Gemini CLI, Codex, Claude, Qwen, iFlow
-- Commands: `cp-start`, `cp-stop`, `cp-login`, `cp-login-url`, `cp-db`, `cp-update`, `cp-claude`, `cp-opencode`, `cp-droid`, `cp-uninstall`
+- Commands: `cp-start`, `cp-stop`, `cp-login`, `cp-login-url`, `cp-db`, `cp-update`, `cp-claude`, `cp-opencode`, `cp-kilo`, `cp-droid`, `cp-uninstall`

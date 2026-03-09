@@ -1,6 +1,6 @@
 # Quick Start
 
-Version: `v2.0.0`
+Version: `v2.0.1`
 
 This guide focuses on fast onboarding. For architecture, failover, model alias details, and update behavior, see [`README.md`](../README.md).
 

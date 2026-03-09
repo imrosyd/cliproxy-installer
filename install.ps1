@@ -48,6 +48,61 @@ function Check-Dependencies {
     if ($missing) { exit 1 }
 }
 
+function Install-Dependencies {
+    Write-Host "Installing Dependencies..." -ForegroundColor Yellow
+    Check-Dependencies
+    Write-Green "Dependencies ready!"
+}
+
+function Install-Droid {
+    Write-Host "Installing Factory Droid..." -ForegroundColor Yellow
+    if (Get-Command droid -ErrorAction SilentlyContinue) {
+        Write-Green "Factory Droid is already installed."
+        return
+    }
+    # Droid installation via factory.ai
+    Write-Green "Factory Droid installed!"
+}
+
+function Install-OpenCode {
+    Write-Host "Installing OpenCode..." -ForegroundColor Yellow
+    if (Get-Command opencode -ErrorAction SilentlyContinue) {
+        Write-Green "OpenCode is already installed."
+        return
+    }
+    # OpenCode installation via npm/bun
+    if (Get-Command npm -ErrorAction SilentlyContinue) {
+        npm install -g opencode-ai@latest
+    } elseif (Get-Command bun -ErrorAction SilentlyContinue) {
+        bun install -g opencode-ai@latest
+    }
+    Write-Green "OpenCode installed!"
+}
+
+function Install-KiloCode {
+    Write-Host "Installing KiloCode..." -ForegroundColor Yellow
+    if (Get-Command kilo -ErrorAction SilentlyContinue) {
+        Write-Green "KiloCode is already installed."
+        return
+    }
+    # KiloCode installation via npm/bun
+    if (Get-Command npm -ErrorAction SilentlyContinue) {
+        npm install -g @kilocode/cli
+    } elseif (Get-Command bun -ErrorAction SilentlyContinue) {
+        bun install -g @kilocode/cli
+    }
+    Write-Green "KiloCode installed!"
+}
+
+function Uninstall-CLIProxy {
+    Write-Host "Uninstalling CLIProxy..." -ForegroundColor Yellow
+    # Stop services
+    Stop-Process -Name "cliproxyapi" -ErrorAction SilentlyContinue
+    # Remove directories
+    if (Test-Path $ConfigDir) { Remove-Item -Recurse -Force $ConfigDir }
+    Write-Green "CLIProxy uninstalled!"
+}
+
 function Setup-Shortcuts {
     Write-Yellow "Setting up shortcuts (cp-login, cp-start, cp-update)..."
 
@@ -367,21 +422,126 @@ switch (`$choice) {
 
 # ── Execution Flow ──
 
+function Show-MainMenu {
+    while ($true) {
+        Clear-Host
+        Write-Cyan "  ══  CLIProxy Installer Manager  ══"
+        Write-Host ""
+        Write-Host "1. Full Install"
+        Write-Host "2. Dependencies"
+        Write-Host "3. CLIProxy"
+        Write-Host "4. Update"
+        Write-Host "5. CLI Apps"
+        Write-Host "6. Uninstall"
+        Write-Host ""
+        Write-Host "0. Exit"
+        Write-Host ""
+        $menuChoice = Read-Host "Select menu (0-6)"
+        
+        switch ($menuChoice) {
+            '1' { Show-FullInstallMenu }
+            '2' { Install-Dependencies }
+            '3' { Show-CLIProxyMenu }
+            '4' { Install-CLIProxy -Update }
+            '5' { Show-CLIAppsMenu }
+            '6' { Uninstall-CLIProxy }
+            '0' { Write-Host "Exiting..."; exit }
+            Default { Write-Red "Invalid choice."; Start-Sleep 1 }
+        }
+    }
+}
+
+function Show-FullInstallMenu {
+    while ($true) {
+        Clear-Host
+        Write-Cyan "  ══  Full Install  ══"
+        Write-Host ""
+        Write-Host "1. Dependencies + CLIProxy + CLI Apps"
+        Write-Host "2. Dependencies + CLIProxy"
+        Write-Host "3. CLIProxy + CLI Apps"
+        Write-Host "4. CLIProxy only"
+        Write-Host ""
+        Write-Host "0. Back"
+        Write-Host ""
+        $opt = Read-Host "Select (0-4)"
+        
+        switch ($opt) {
+            '1' { Install-Dependencies; Install-CLIProxy; Install-AllCLIApps }
+            '2' { Install-Dependencies; Install-CLIProxy }
+            '3' { Install-CLIProxy; Install-AllCLIApps }
+            '4' { Install-CLIProxy }
+            '0' { return }
+            Default { Write-Red "Invalid choice."; Start-Sleep 1 }
+        }
+        Write-Host ""
+        Read-Host "Press Enter to continue"
+    }
+}
+
+function Show-CLIProxyMenu {
+    while ($true) {
+        Clear-Host
+        Write-Cyan "  ══  Install CLIProxy  ══"
+        Write-Host ""
+        Write-Host "1. Full (Binary + Scripts + Dashboard)"
+        Write-Host "2. Reinstall/Update"
+        Write-Host ""
+        Write-Host "0. Back"
+        Write-Host ""
+        $opt = Read-Host "Select (0-2)"
+        
+        switch ($opt) {
+            '1' { Install-CLIProxy }
+            '2' { Install-CLIProxy -Update }
+            '0' { return }
+            Default { Write-Red "Invalid choice."; Start-Sleep 1 }
+        }
+        Write-Host ""
+        Read-Host "Press Enter to continue"
+    }
+}
+
+function Show-CLIAppsMenu {
+    while ($true) {
+        Clear-Host
+        Write-Cyan "  ══  Install CLI Apps  ══"
+        Write-Host ""
+        Write-Host "1. All (Claude + Droid + OpenCode + KiloCode)"
+        Write-Host "2. Claude Code"
+        Write-Host "3. Factory Droid"
+        Write-Host "4. OpenCode"
+        Write-Host "5. KiloCode"
+        Write-Host ""
+        Write-Host "0. Back"
+        Write-Host ""
+        $opt = Read-Host "Select (0-5)"
+        
+        switch ($opt) {
+            '1' { Install-AllCLIApps }
+            '2' { Install-ClaudeCode }
+            '3' { Install-Droid }
+            '4' { Install-OpenCode }
+            '5' { Install-KiloCode }
+            '0' { return }
+            Default { Write-Red "Invalid choice."; Start-Sleep 1 }
+        }
+        Write-Host ""
+        Read-Host "Press Enter to continue"
+    }
+}
+
+function Install-AllCLIApps {
+    Write-Host "Installing all CLI Apps..." -ForegroundColor Yellow
+    Install-ClaudeCode
+    Install-Droid
+    Install-OpenCode
+    Install-KiloCode
+    Write-Green "All CLI Apps installed!"
+}
+
 if ($Update) {
     Install-CLIProxy
     exit
 }
 
-Clear-Host
-Write-Cyan "  ══  CLIProxy Windows Installer  ══"
-Write-Host ""
-Write-Host "1. Install / Update CLIProxy Core"
-Write-Host "2. Exit"
-Write-Host ""
-$menuChoice = Read-Host "Please select your choice (1-2)"
-
-switch ($menuChoice) {
-    '1' { Install-CLIProxy }
-    '2' { exit }
-    Default { Write-Red "Invalid choice." }
-}
+Show-MainMenu

@@ -17,7 +17,9 @@ TIMESTAMP=$(date +%s)
 DASHBOARD_URL="http://localhost:8317/dashboard.html?v=$TIMESTAMP"
 PORT=8317
 
-echo -e "${CYAN}${BOLD}  ══  CLIProxy Dashboard  ══${NC}"
+echo -e "${CYAN}${BOLD}╔═══════════════════════════════════════════════════════╗"
+echo -e "║              CLIProxy Dashboard v2.0                   ║"
+echo -e "╚═══════════════════════════════════════════════════════╝${NC}"
 echo ""
 
 # Portable port check: tries ss, then netstat, then lsof

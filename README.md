@@ -1,7 +1,7 @@
 # CLIProxy: Universal AI Proxy & Dashboard
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Version: 2.0.0](https://img.shields.io/badge/Version-2.0.0-blue.svg)](https://github.com/imrosyd/cliproxy-installer)
+[![Version: 2.0.1](https://img.shields.io/badge/Version-2.0.1-blue.svg)](https://github.com/imrosyd/cliproxy-installer) <!-- Dashboard v2.0.1 supported -->
 
 **CLIProxy** is an installer and management suite for **CLIProxyAPIPlus**. Route AI model requests through a single OpenAI-compatible endpoint with automatic failover across accounts/providers when quota or routing issues happen.
 
@@ -60,6 +60,7 @@ Dashboard: `http://localhost:8317/`
 | `cp-add-provider` | Add custom OpenAI-compatible provider |
 | `cp-claude` | Launch Claude Code via CLIProxy |
 | `cp-opencode` | Launch OpenCode via CLIProxy |
+| `cp-kilo` | Launch KiloCode via CLIProxy (AI coding assistant, via CLIProxy endpoint) |
 | `cp-droid` | Launch Factory.ai Droid via CLIProxy |
 | `cp-uninstall` | Remove CLIProxy |
 

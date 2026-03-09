@@ -152,6 +152,7 @@ setup_shortcuts() {
         sed -i '' '/alias cp-stop/d' "$SHELL_CONFIG" 2>/dev/null || true
         sed -i '' '/alias cp-claude/d' "$SHELL_CONFIG" 2>/dev/null || true
         sed -i '' '/alias cp-db/d' "$SHELL_CONFIG" 2>/dev/null || true
+        sed -i '' '/alias cp-kilo/d' "$SHELL_CONFIG" 2>/dev/null || true
         sed -i '' '/alias cp-opencode/d' "$SHELL_CONFIG" 2>/dev/null || true
         sed -i '' '/alias cp-login-url/d' "$SHELL_CONFIG" 2>/dev/null || true
         sed -i '' '/alias cp-add-provider/d' "$SHELL_CONFIG" 2>/dev/null || true
@@ -163,6 +164,7 @@ setup_shortcuts() {
         sed -i '/alias cp-stop/d' "$SHELL_CONFIG" 2>/dev/null || true
         sed -i '/alias cp-claude/d' "$SHELL_CONFIG" 2>/dev/null || true
         sed -i '/alias cp-db/d' "$SHELL_CONFIG" 2>/dev/null || true
+        sed -i '/alias cp-kilo/d' "$SHELL_CONFIG" 2>/dev/null || true
         sed -i '/alias cp-opencode/d' "$SHELL_CONFIG" 2>/dev/null || true
         sed -i '/alias cp-login-url/d' "$SHELL_CONFIG" 2>/dev/null || true
         sed -i '/alias cp-add-provider/d' "$SHELL_CONFIG" 2>/dev/null || true
@@ -185,6 +187,7 @@ setup_shortcuts() {
     echo "alias cp-claude=\"$HOME/.cliproxyapi/scripts/cp-claude.sh\"" >> "$SHELL_CONFIG"
     echo "alias cp-db=\"$HOME/.cliproxyapi/bin/cp-db\"" >> "$SHELL_CONFIG"
     echo "alias cp-opencode=\"$HOME/.cliproxyapi/scripts/cp-opencode.sh\"" >> "$SHELL_CONFIG"
+    echo "alias cp-kilo=\"$HOME/.cliproxyapi/scripts/cp-kilo.sh\"" >> "$SHELL_CONFIG"
     echo "alias cp-droid=\"$HOME/.cliproxyapi/scripts/cp-droid.sh\"" >> "$SHELL_CONFIG"
     echo "alias cp-add-provider=\"$HOME/.cliproxyapi/scripts/cp-add-provider.sh\"" >> "$SHELL_CONFIG"
     echo "alias cp-uninstall=\"curl -sL https://raw.githubusercontent.com/imrosyd/cliproxy-installer/main/uninstall | bash\"" >> "$SHELL_CONFIG"
@@ -391,6 +394,43 @@ install_droid() {
     echo "    Run in your project: droid"
 }
 
+install_kilo() {
+    echo -e "${YELLOW}>>> Installing KiloCode...${NC}"
+
+    # Check if npm or bun is available
+    PKG_MANAGER=""
+    if command -v bun &> /dev/null; then
+        PKG_MANAGER="bun"
+    elif command -v npm &> /dev/null; then
+        PKG_MANAGER="npm"
+    else
+        echo -e "${RED}[Error] Neither npm nor bun found.${NC}"
+        echo "Please install Node.js (npm) or Bun first:"
+        echo "  - Node.js: https://nodejs.org/"
+        echo "  - Bun: https://bun.sh/"
+        echo ""
+        echo "Or install manually:"
+        echo "  npm install -g @kilocode/cli"
+        return 1
+    fi
+
+    echo "Using $PKG_MANAGER to install KiloCode..."
+
+    if [ "$PKG_MANAGER" == "bun" ]; then
+        bun install -g @kilocode/cli
+    else
+        npm install -g @kilocode/cli
+    fi
+
+    if ! command -v kilo &> /dev/null; then
+        echo -e "${RED}[Error] KiloCode installation failed.${NC}"
+        return 1
+    fi
+
+    echo -e "${GREEN}[OK] KiloCode installed successfully${NC}"
+    echo -e "${GREEN}[OK] KiloCode is ready!${NC}"
+    echo "    Run: cp-kilo"
+}
 install_opencode() {
     echo -e "${YELLOW}>>> Installing OpenCode...${NC}"
 
@@ -628,6 +668,7 @@ install_cliproxy() {
     INSTALL_STATUSLINE="n"
     INSTALL_SUPERPOWERS="n"
     INSTALL_OPENCODE="n"
+    INSTALL_KILO="n"
     INSTALL_DROID="n"
     CONFIGURE_CUSTOM="n"
     CUSTOM_BASE_URL="http://localhost:8317"
@@ -663,6 +704,7 @@ install_cliproxy() {
         read -p "Install Claude Statusline? (y/n): " INSTALL_STATUSLINE < /dev/tty
         read -p "Install Superpowers? (y/n): " INSTALL_SUPERPOWERS < /dev/tty
         read -p "Install OpenCode? (y/n): " INSTALL_OPENCODE < /dev/tty
+        read -p "Install KiloCode? (y/n): " INSTALL_KILO < /dev/tty
         read -p "Install Droid? (y/n): " INSTALL_DROID < /dev/tty
         echo ""
     fi
@@ -1033,20 +1075,36 @@ EOF
     chmod +x "$SCRIPTS_DIR/cp-add-provider.sh"
 
     # CP-OpenCode Script (Auto-Start + Live Model Refresh)
-        # Cp-opencode script
-    echo "Installing cp-opencode script..."
-    CP_OPENCODE_SRC="$(dirname "$0")/assets/scripts/cp-opencode.sh"
-    if [ -f "$CP_OPENCODE_SRC" ]; then
-        cp "$CP_OPENCODE_SRC" "$SCRIPTS_DIR/cp-opencode.sh"
-        echo -e "${GREEN}[OK] Cp-opencode script installed from local assets${NC}"
+# Cp-opencode script
+echo "Installing cp-opencode script..."
+CP_OPENCODE_SRC="$(dirname "$0")/assets/scripts/cp-opencode.sh"
+if [ -f "$CP_OPENCODE_SRC" ]; then
+    cp "$CP_OPENCODE_SRC" "$SCRIPTS_DIR/cp-opencode.sh"
+    echo -e "${GREEN}[OK] Cp-opencode script installed from local assets${NC}"
+else
+    if curl -fsSL "https://raw.githubusercontent.com/imrosyd/cliproxy-installer/main/assets/scripts/cp-opencode.sh" -o "$SCRIPTS_DIR/cp-opencode.sh" 2>/dev/null; then
+        echo -e "${GREEN}[OK] Cp-opencode script downloaded from GitHub${NC}"
     else
-        if curl -fsSL "https://raw.githubusercontent.com/imrosyd/cliproxy-installer/main/assets/scripts/cp-opencode.sh" -o "$SCRIPTS_DIR/cp-opencode.sh" 2>/dev/null; then
-            echo -e "${GREEN}[OK] Cp-opencode script downloaded from GitHub${NC}"
-        else
-            echo -e "${YELLOW}[!] Could not install Cp-opencode script${NC}"
-        fi
+        echo -e "${YELLOW}[!] Could not install Cp-opencode script${NC}"
     fi
-    chmod +x "$SCRIPTS_DIR/cp-opencode.sh"
+fi
+chmod +x "$SCRIPTS_DIR/cp-opencode.sh"
+
+# Cp-kilo script
+echo "Installing cp-kilo script..."
+CP_KILO_SRC="$(dirname \"$0\")/assets/scripts/cp-kilo.sh"
+if [ -f "$CP_KILO_SRC" ]; then
+    cp "$CP_KILO_SRC" "$SCRIPTS_DIR/cp-kilo.sh"
+    echo -e "${GREEN}[OK] Cp-kilo script installed from local assets${NC}"
+else
+    if curl -fsSL "https://raw.githubusercontent.com/imrosyd/cliproxy-installer/main/assets/scripts/cp-kilo.sh" -o "$SCRIPTS_DIR/cp-kilo.sh" 2>/dev/null; then
+        echo -e "${GREEN}[OK] Cp-kilo script downloaded from GitHub${NC}"
+    else
+        echo -e "${YELLOW}[!] Could not install Cp-kilo script${NC}"
+    fi
+fi
+chmod +x "$SCRIPTS_DIR/cp-kilo.sh"
+
 
     # Install cp-droid script
     echo "Installing cp-droid script..."
@@ -1214,6 +1272,10 @@ PYSCRIPT
             install_opencode
         fi
 
+        if [[ "$INSTALL_KILO" =~ ^[Yy]$ ]]; then
+            install_kilo
+        fi
+
         if [[ "$INSTALL_DROID" =~ ^[Yy]$ ]]; then
             install_droid
         fi
@@ -1230,6 +1292,7 @@ PYSCRIPT
     echo -e "  ${CYAN}cp-update${NC}      ${DIM}Update CLIProxy${NC}"
     echo -e "  ${CYAN}cp-claude${NC}      ${DIM}Launch Claude Code${NC}"
     echo -e "  ${CYAN}cp-opencode${NC}    ${DIM}Launch OpenCode${NC}"
+    echo -e "  ${CYAN}cp-kilo${NC}        ${DIM}Launch KiloCode${NC}"
     echo -e "  ${CYAN}cp-droid${NC}       ${DIM}Launch Android IDE${NC}"
     echo -e "  ${CYAN}cp-db${NC}          ${DIM}Open Dashboard${NC}"
     echo -e "  ${CYAN}cp-uninstall${NC}   ${DIM}Uninstall CLIProxy${NC}"
@@ -1254,6 +1317,49 @@ PYSCRIPT
     exec "$SHELL" -i
 }
 
+manage_cli_apps() {
+    while true; do
+        clear
+        echo -e "${CYAN}${BOLD}  ══  Install CLI Apps  ══${NC}"
+        echo ""
+        
+        echo -e "  ${BOLD}${GREEN}1${NC}  Claude Code"
+        echo -e "  ${BOLD}${GREEN}2${NC}  Factory Droid"
+        echo -e "  ${BOLD}${GREEN}3${NC}  OpenCode"
+        echo -e "  ${BOLD}${GREEN}4${NC}  KiloCode"
+        echo -e "  ${BOLD}${RED}0${NC}  Back to Main Menu"
+        echo ""
+        echo -ne "  ${BOLD}›${NC} Select an app to install ${DIM}(0-4)${NC}: "
+        read app_choice < /dev/tty
+        
+        case $app_choice in
+            1)
+                echo -e "${YELLOW}Installing Claude Code...${NC}"
+                if command -v npm &> /dev/null; then
+                    sudo npm install -g @anthropic-ai/claude-code 2>/dev/null || npm install -g @anthropic-ai/claude-code 2>/dev/null
+                    echo -e "${GREEN}[OK] Claude Code installed.${NC}"
+                else
+                    echo -e "${RED}[Error] npm not found. Please install Node.js first.${NC}"
+                fi
+                sleep 2
+                ;;
+            2)
+                install_droid
+                sleep 2
+                ;;
+            3)
+                install_opencode
+                sleep 2
+                ;;
+            4)
+                install_kilo
+                sleep 2
+                ;;
+            0) break ;;
+            *) echo -e "${RED}Invalid choice.${NC}"; sleep 1 ;;
+        esac
+    done
+}
 # --- Main Execution ---
 # Wrapped in main() to ensure all functions are defined before execution,
 # especially when piped through curl | bash
@@ -1277,67 +1383,369 @@ if [[ "$1" == "-update" ]]; then
     echo -e "${YELLOW}>>> Updating OpenCode...${NC}"
     install_opencode || true
 
+    echo -e "${YELLOW}>>> Updating KiloCode...${NC}"
+    install_kilo || true
+
     echo -e "${YELLOW}>>> Updating Droid...${NC}"
     install_droid || true
 
     echo -e "${GREEN}[OK] Auto update complete (core + tools).${NC}"
     exit 0
 fi
+}
 
 # Exit if we somehow got here after update (failsafe)
 if [[ "$1" == "-update" ]]; then
     exit 0
 fi
 
-# --- Main Menu ---
+# --- Handle CLI App Uninstall Flags ---
+if [[ "$1" == "-uninstall-claude" ]]; then
+    echo -e "${YELLOW}Uninstalling Claude Code...${NC}"
+    if command -v npm >/dev/null 2>&1; then
+        npm uninstall -g @anthropic-ai/claude-code 2>/dev/null || sudo npm uninstall -g @anthropic-ai/claude-code 2>/dev/null
+        echo -e "${GREEN}[OK] Claude Code uninstalled.${NC}"
+    else
+        echo -e "${RED}[Error] npm not found. Cannot uninstall.${NC}"
+    fi
+    exit 0
+fi
 
-clear
-PLATFORM=$(detect_os)
+if [[ "$1" == "-uninstall-opencode" ]]; then
+    echo -e "${YELLOW}Uninstalling OpenCode...${NC}"
+    if command -v npm >/dev/null 2>&1; then
+        npm uninstall -g opencode-ai 2>/dev/null
+        echo -e "${GREEN}[OK] OpenCode uninstalled.${NC}"
+    elif command -v bun >/dev/null 2>&1; then
+        bun uninstall -g opencode-ai 2>/dev/null
+        echo -e "${GREEN}[OK] OpenCode uninstalled.${NC}"
+    else
+        echo -e "${RED}[Error] npm/bun not found. Cannot uninstall.${NC}"
+    fi
+    exit 0
+fi
 
-# Platform icon
-case "$PLATFORM" in
-    linux)   PLATFORM_ICON="🐧" ;;
-    macos)   PLATFORM_ICON="🍎" ;;
-    windows) PLATFORM_ICON="🪟" ;;
-    *)       PLATFORM_ICON="💻" ;;
-esac
+if [[ "$1" == "-uninstall-kilo" ]]; then
+    echo -e "${YELLOW}Uninstalling KiloCode...${NC}"
+    if command -v npm >/dev/null 2>&1; then
+        npm uninstall -g @kilocode/cli 2>/dev/null
+        echo -e "${GREEN}[OK] KiloCode uninstalled.${NC}"
+    elif command -v bun >/dev/null 2>&1; then
+        bun uninstall -g @kilocode/cli 2>/dev/null
+        echo -e "${GREEN}[OK] KiloCode uninstalled.${NC}"
+    else
+        echo -e "${RED}[Error] npm/bun not found. Cannot uninstall.${NC}"
+    fi
+    exit 0
+fi
 
-echo -e "${CYAN}${BOLD}  ══  CLIProxy Installer Manager  ══${NC}"
-echo ""
-echo -e "  ${DIM}Platform :${NC} ${PLATFORM_ICON}  ${BOLD}${PLATFORM}${NC}"
-echo ""
-echo -e "  ${BOLD}${GREEN}1${NC}  Install Dependencies        ${DIM}Git & Go${NC}"
-echo -e "  ${BOLD}${GREEN}2${NC}  Install / Update CLIProxy   ${DIM}Core binary & scripts${NC}"
-echo -e "  ${BOLD}${YELLOW}3${NC}  Full Install                ${DIM}Recommended for first run${NC}"
-echo -e "  ${BOLD}${RED}4${NC}  Exit"
-echo ""
-echo -ne "  ${BOLD}›${NC} Select ${DIM}(1-4)${NC}: "
-read choice < /dev/tty
-echo ""
+if [[ "$1" == "-uninstall-droid" ]]; then
+    echo -e "${YELLOW}Uninstalling Factory Droid...${NC}"
+    rm -f /usr/local/bin/droid 2>/dev/null || sudo rm -f /usr/local/bin/droid 2>/dev/null
+    rm -rf ~/.factory 2>/dev/null
+    echo -e "${GREEN}[OK] Factory Droid uninstalled.${NC}"
+    exit 0
+fi
 
-case $choice in
-    1) install_dependencies ;;
-    2)
-        if [ -d "$HOME/.cliproxyapi" ]; then
-            echo -e "${CYAN}[i] Existing installation detected, running update mode (preserve config/auth)${NC}"
-            install_cliproxy "true" "true"
-        else
-            install_cliproxy
+if [[ "$1" == "-uninstall-all" ]]; then
+    echo -e "${YELLOW}Uninstalling all CLI Apps...${NC}"
+    
+    # Claude
+    if command -v npm >/dev/null 2>&1; then
+        npm uninstall -g @anthropic-ai/claude-code 2>/dev/null || sudo npm uninstall -g @anthropic-ai/claude-code 2>/dev/null
+        echo -e "${GREEN}[OK] Claude Code uninstalled.${NC}"
+    fi
+    
+    # OpenCode
+    if command -v npm >/dev/null 2>&1; then
+        npm uninstall -g opencode-ai 2>/dev/null
+    elif command -v bun >/dev/null 2>&1; then
+        bun uninstall -g opencode-ai 2>/dev/null
+    fi
+    echo -e "${GREEN}[OK] OpenCode uninstalled.${NC}"
+    
+    # Kilo
+    if command -v npm >/dev/null 2>&1; then
+        npm uninstall -g @kilocode/cli 2>/dev/null
+    elif command -v bun >/dev/null 2>&1; then
+        bun uninstall -g @kilocode/cli 2>/dev/null
+    fi
+    echo -e "${GREEN}[OK] KiloCode uninstalled.${NC}"
+    
+    # Droid
+    rm -f /usr/local/bin/droid 2>/dev/null || sudo rm -f /usr/local/bin/droid 2>/dev/null
+    rm -rf ~/.factory 2>/dev/null
+    echo -e "${GREEN}[OK] Factory Droid uninstalled.${NC}"
+    
+    echo ""
+    echo -e "${GREEN}[OK] All CLI Apps uninstalled!${NC}"
+    exit 0
+fi
+
+# --- Uninstall CLIProxy ---
+if [[ "$1" == "-uninstall-cliproxy" ]] || [[ "$1" == "-uninstall" ]]; then
+    echo -e "${YELLOW}Uninstalling CLIProxy...${NC}"
+    echo ""
+    
+    # Stop running services
+    pkill -f "$HOME/.cliproxyapi/scripts/unified-server.py" 2>/dev/null || true
+    pkill -f "$HOME/.cliproxyapi/bin/cliproxyapi" 2>/dev/null || true
+    
+    # Remove cron entries
+    tmp=$(mktemp)
+    if crontab -l 2>/dev/null > "$tmp"; then
+        grep -v "$HOME/.cliproxyapi/scripts/quota-fetcher.py" "$tmp" > "$tmp.new" 2>/dev/null || true
+        crontab "$tmp.new" 2>/dev/null || true
+        rm -f "$tmp.new"
+    fi
+    rm -f "$tmp"
+    
+    # Remove CLIProxy directories
+    rm -rf "$HOME/.cliproxyapi"
+    rm -rf "$HOME/.cli-proxy-api"
+    rm -f "$HOME/bin/cliproxyapi" 2>/dev/null
+    rm -f "$HOME/bin/cp-db" 2>/dev/null
+    
+    # Remove aliases from shell config
+    for config in "$HOME/.bashrc" "$HOME/.zshrc"; do
+        if [ -f "$config" ]; then
+            sed -i '/# CLIProxy Shortcuts/d' "$config" 2>/dev/null || true
+            sed -i '/alias cp-/d' "$config" 2>/dev/null || true
         fi
-        ;;
-    3)
-        install_dependencies
-        if [ -d "$HOME/.cliproxyapi" ]; then
-            echo -e "${CYAN}[i] Existing installation detected, running update mode (preserve config/auth)${NC}"
-            install_cliproxy "true" "true"
-        else
-            install_cliproxy
-        fi
-        ;;
-    4) exit 0 ;;
-    *) echo "Invalid choice." ;;
-esac
+    done
+    
+    echo -e "${GREEN}[OK] CLIProxy uninstalled successfully!${NC}"
+    echo ""
+    echo "Note: CLI apps (Claude, OpenCode, KiloCode, Droid) were NOT uninstalled."
+    echo "To uninstall them, run:"
+    echo "  curl -fsSL https://raw.githubusercontent.com/imrosyd/cliproxy-installer/main/install | bash -s -- -uninstall-all"
+    exit 0
+fi
 
+uninstall_all() {
+    echo -e "${YELLOW}Uninstalling CLIProxy + All CLI Apps...${NC}"
+    echo ""
+    
+    read -p "Are you sure you want to uninstall EVERYTHING? (y/n): " confirm < /dev/tty
+    if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
+        echo "Uninstall cancelled."
+        return
+    fi
+    
+    # Stop running services
+    pkill -f "$HOME/.cliproxyapi/scripts/unified-server.py" 2>/dev/null || true
+    pkill -f "$HOME/.cliproxyapi/bin/cliproxyapi" 2>/dev/null || true
+    
+    # Remove cron entries
+    tmp=$(mktemp)
+    if crontab -l 2>/dev/null > "$tmp"; then
+        grep -v "$HOME/.cliproxyapi/scripts/quota-fetcher.py" "$tmp" > "$tmp.new" 2>/dev/null || true
+        crontab "$tmp.new" 2>/dev/null || true
+        rm -f "$tmp.new"
+    fi
+    rm -f "$tmp"
+    
+    # Remove CLIProxy directories
+    rm -rf "$HOME/.cliproxyapi"
+    rm -rf "$HOME/.cli-proxy-api"
+    rm -f "$HOME/bin/cliproxyapi" 2>/dev/null
+    rm -f "$HOME/bin/cp-db" 2>/dev/null
+    
+    # Remove aliases from shell config
+    for config in "$HOME/.bashrc" "$HOME/.zshrc"; do
+        if [ -f "$config" ]; then
+            sed -i '/# CLIProxy Shortcuts/d' "$config" 2>/dev/null || true
+            sed -i '/alias cp-/d' "$config" 2>/dev/null || true
+        fi
+    done
+    
+    # Uninstall CLI Apps
+    if command -v npm >/dev/null 2>&1; then
+        npm uninstall -g @anthropic-ai/claude-code 2>/dev/null || sudo npm uninstall -g @anthropic-ai/claude-code 2>/dev/null
+        npm uninstall -g opencode-ai 2>/dev/null
+        npm uninstall -g @kilocode/cli 2>/dev/null
+    fi
+    if command -v bun >/dev/null 2>&1; then
+        bun uninstall -g opencode-ai 2>/dev/null
+        bun uninstall -g @kilocode/cli 2>/dev/null
+    fi
+    rm -f /usr/local/bin/droid 2>/dev/null || sudo rm -f /usr/local/bin/droid 2>/dev/null
+    rm -rf ~/.factory 2>/dev/null
+    
+    echo -e "${GREEN}[OK] Everything uninstalled successfully!${NC}"
 }
 
-main "$@"
+update_cliproxy() {
+    install_dependencies
+    if [ -d "$HOME/.cliproxyapi" ]; then
+        echo -e "${CYAN}[i] Updating CLIProxy (preserve config/auth)${NC}"
+        install_cliproxy "true" "true"
+    else
+        echo -e "${CYAN}[i] CLIProxy not found, installing fresh...${NC}"
+        install_cliproxy
+    fi
+    auto_update_claude_code || true
+    echo -e "${YELLOW}>>> Updating CLI Apps...${NC}"
+    install_kilo || true
+    install_opencode || true
+    install_droid || true
+    echo -e "${GREEN}[OK] Update complete!${NC}"
+}
+
+menu_full_install() {
+    while true; do
+        clear
+        echo -e "${CYAN}${BOLD}  ══  Full Install  ══${NC}"
+        echo ""
+        echo -e "  ${BOLD}${GREEN}1${NC}  Dependencies + CLIProxy + CLI Apps"
+        echo -e "  ${BOLD}${GREEN}2${NC}  Dependencies + CLIProxy"
+        echo -e "  ${BOLD}${GREEN}3${NC}  CLIProxy + CLI Apps"
+        echo -e "  ${BOLD}${GREEN}4${NC}  CLIProxy only"
+        echo ""
+        echo -e "  ${BOLD}${RED}0${NC}  Back"
+        echo ""
+        echo -ne "  ${BOLD}›${NC} Select ${DIM}(0-4)${NC}: "
+        read opt < /dev/tty
+        case $opt in
+            1)
+                install_dependencies
+                install_cliproxy
+                ;;
+            2)
+                install_dependencies
+                install_cliproxy
+                ;;
+            3)
+                install_cliproxy
+                ;;
+            4)
+                install_cliproxy
+                ;;
+            0) break ;;
+            *) echo -e "${RED}Invalid choice.${NC}"; sleep 1 ;;
+        esac
+    done
+}
+
+menu_cliproxy() {
+    while true; do
+        clear
+        echo -e "${CYAN}${BOLD}  ══  Install CLIProxy  ══${NC}"
+        echo ""
+        echo -e "  ${BOLD}${GREEN}1${NC}  Full (Binary + Scripts + Dashboard)"
+        echo -e "  ${BOLD}${GREEN}2${NC}  Reinstall/Update"
+        echo ""
+        echo -e "  ${BOLD}${RED}0${NC}  Back"
+        echo ""
+        echo -ne "  ${BOLD}›${NC} Select ${DIM}(0-2)${NC}: "
+        read opt < /dev/tty
+        case $opt in
+            1)
+                install_cliproxy
+                ;;
+            2)
+                install_cliproxy "true"
+                ;;
+            0) break ;;
+            *) echo -e "${RED}Invalid choice.${NC}"; sleep 1 ;;
+        esac
+    done
+}
+
+menu_cli_apps() {
+    while true; do
+        clear
+        echo -e "${CYAN}${BOLD}  ══  Install CLI Apps  ══${NC}"
+        echo ""
+        echo -e "  ${BOLD}${GREEN}1${NC}  All (Claude + Droid + OpenCode + KiloCode)"
+        echo -e "  ${BOLD}${GREEN}2${NC}  Claude Code"
+        echo -e "  ${BOLD}${GREEN}3${NC}  Factory Droid"
+        echo -e "  ${BOLD}${GREEN}4${NC}  OpenCode"
+        echo -e "  ${BOLD}${GREEN}5${NC}  KiloCode"
+        echo ""
+        echo -e "  ${BOLD}${RED}0${NC}  Back"
+        echo ""
+        echo -ne "  ${BOLD}›${NC} Select ${DIM}(0-5)${NC}: "
+        read opt < /dev/tty
+        case $opt in
+            1)
+                install_claude_code
+                install_droid
+                install_opencode
+                install_kilo
+                ;;
+            2) install_claude_code ;;
+            3) install_droid ;;
+            4) install_opencode ;;
+            5) install_kilo ;;
+            0) break ;;
+            *) echo -e "${RED}Invalid choice.${NC}"; sleep 1 ;;
+        esac
+    done
+}
+
+# --- Main Menu ---
+
+main_menu() {
+    while true; do
+        clear
+        PLATFORM=$(detect_os)
+
+        # Platform icon
+        case "$PLATFORM" in
+            linux)   PLATFORM_ICON="🐧" ;;
+            macos)   PLATFORM_ICON="🍎" ;;
+            windows) PLATFORM_ICON="🪟" ;;
+            *)       PLATFORM_ICON="💻" ;;
+        esac
+
+        clear
+        echo -e "${CYAN}${BOLD}  ══  CLIProxy Installer Manager  ══${NC}"
+        echo ""
+        echo -e "  ${BOLD}${GREEN}1${NC}  Full Install"
+        echo -e "  ${BOLD}${GREEN}2${NC}  Dependencies"
+        echo -e "  ${BOLD}${GREEN}3${NC}  CLIProxy"
+        echo -e "  ${BOLD}${GREEN}4${NC}  Update"
+        echo -e "  ${BOLD}${GREEN}5${NC}  CLI Apps"
+        echo -e "  ${BOLD}${GREEN}6${NC}  Uninstall"
+        echo ""
+        echo -e "  ${BOLD}${RED}0${NC}  Exit"
+        echo ""
+        echo -ne "  ${BOLD}›${NC} Select menu ${DIM}(0-6)${NC}: "
+        read choice < /dev/tty
+        echo ""
+
+        case $choice in
+            1)
+                menu_full_install
+                ;;
+            2)
+                install_dependencies
+                ;;
+            3)
+                menu_cliproxy
+                ;;
+            4)
+                update_cliproxy
+                ;;
+            5)
+                menu_cli_apps
+                ;;
+            6) 
+                if [ -f "./uninstall" ]; then
+                    bash ./uninstall
+                else
+                    echo -e "${YELLOW}Downloading uninstall script...${NC}"
+                    curl -fsSL https://raw.githubusercontent.com/imrosyd/cliproxy-installer/main/uninstall -o /tmp/uninstall.sh
+                    bash /tmp/uninstall.sh
+                fi
+                echo -e "${GREEN}Uninstall complete. Goodbye!${NC}"
+                exit 0
+                ;;
+            0) echo -e "${YELLOW}Goodbye!${NC}"; exit 0 ;;
+            *) echo -e "${RED}Invalid choice.${NC}"; sleep 1 ;;
+        esac
+    done
+}
+
+main_menu
