@@ -1702,6 +1702,13 @@ async function checkServerStatus() {
 
 /* ── Refresh All ─────────────────────────────────────── */
 async function refreshAll() {
+    // Get current active tab before refresh
+    let currentTab = 'dashboard';
+    const navItems = document.querySelectorAll('.nav-item[data-tab].active');
+    if (navItems.length > 0) {
+        currentTab = navItems[0].dataset.tab || 'dashboard';
+    }
+    
     const btn = document.getElementById('refreshBtn');
     if (btn) {
         btn.disabled = true;
@@ -1754,10 +1761,10 @@ async function refreshAll() {
                 provider: p.name,
                 type: 'custom',
                 baseUrl: p['base-url'] || p.base_url || '',
-                status: 'active',
-                status_message: '',
+                status: (p.enabled === false) ? 'disabled' : 'active',
+                status_message: (p.enabled === false) ? 'Disabled from dashboard' : '',
                 models: normalizeModelList(p.models),
-                disabled: false,
+                disabled: (p.enabled === false),
                 unavailable: false,
                 quota: null
             }));
@@ -1769,18 +1776,36 @@ async function refreshAll() {
             document.getElementById('statAccounts').textContent = '—';
         }
 
-        /* Stats depend on accountsData — call AFTER accounts are loaded */
+        /* Update data based on current tab - stay on same tab */
         updateDashboardStats();
-        renderDashboardPreview();
+        
+        // Only refresh the current tab's content, don't switch tabs
+        if (currentTab === 'accounts') {
+            renderAccountsTable(accountsData);
+        } else if (currentTab === 'settings') {
+            loadSettings();
+        } else if (currentTab === 'insights') {
+            loadInsightsData();
+        } else {
+            renderDashboardPreview();
+        }
 
         document.getElementById('lastUpdated').textContent =
             new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
     } catch (err) {
         console.error('refreshAll:', err);
-        /* Show cached data even when server is offline */
+        /* Show cached data even when server is offline - stay on current tab */
         updateDashboardStats();
-        renderDashboardPreview();
+        if (currentTab === 'accounts') {
+            renderAccountsTable(accountsData);
+        } else if (currentTab === 'settings') {
+            loadSettings();
+        } else if (currentTab === 'insights') {
+            loadInsightsData();
+        } else {
+            renderDashboardPreview();
+        }
     } finally {
         if (btn) {
             btn.disabled = false;
@@ -2204,36 +2229,35 @@ function renderAccountsTable(accounts) {
         const modelCount = Array.isArray(acc.models) ? acc.models.length : 0;
         const countBadge = '<span class="badge badge-default" style="font-family:JetBrains Mono,monospace;font-size:11px;">' + modelCount + '</span>';
 
-        return '<tr>' +
+            return '<tr>' +
             '<td><div class="account-cell">' +
-                '<div class="account-avatar">' + initial + '</div>' +
-                '<div>' +
-                    '<div class="account-name">' + escapeHtml(getAccountPrimaryText(acc)) + '</div>' +
-                    '<div class="account-email">' + escapeHtml(getAccountSecondaryText(acc)) + '</div>' +
-                '</div>' +
+            '<div class="account-avatar">' + initial + '</div>' +
+            '<div>' +
+            '<div class="account-name">' + escapeHtml(getAccountPrimaryText(acc)) + '</div>' +
+            '<div class="account-email">' + escapeHtml(getAccountSecondaryText(acc)) + '</div>' +
+            '</div>' +
             '</div></td>' +
             '<td>' + countBadge + '</td>' +
             '<td>' + modelTags + '</td>' +
             '<td>' + statusBadge + '</td>' +
             '<td>' +
-                '<label class="toggle-switch" title="' + (acc.disabled ? 'Enable account' : 'Disable account') + '">' +
-                    '<input type=\"checkbox\" ' + (acc.disabled ? '' : 'checked') +
-                        ' onchange=\"toggleAccountStatus(' + escapeHtml(JSON.stringify(String(acc.id || ''))) + ', this.checked, this)\"' +
-                        (String(acc.type || '').toLowerCase() === 'custom' ? ' disabled' : '') + '>' +
-                    '<span class=\"toggle-slider\"></span>' +
-                '</label>' +
+            '<label class="toggle-switch" title="' + (acc.disabled ? 'Enable account' : 'Disable account') + '">' +
+            '<input type="checkbox" ' + (acc.disabled ? '' : 'checked') +
+                ' onchange=\"toggleAccountStatus(' + JSON.stringify(String(acc.id || '')) + ', this.checked, this)\">' +
+            '<span class="toggle-slider"></span>' +
+            '</label>' +
             '</td>' +
             '<td>' +
-                (String(acc.type || '').toLowerCase() === 'custom'
-                    ? '<button class=\"btn-icon\" title=\"Remove custom provider\" ' +
-                          'onclick=\"logoutAccount(' + escapeHtml(JSON.stringify(String(acc.id || ''))) + ', ' + escapeHtml(JSON.stringify(String(acc.provider || acc.id || 'this provider'))) + ')\">' +
-                          '<i data-lucide=\"trash-2\" style=\"width:14px;height:14px\"></i>' +
-                      '</button>'
-                    : '<button class=\"btn-icon\" title=\"Logout account\" ' +
-                          'onclick=\"logoutAccount(' + escapeHtml(JSON.stringify(String(acc.id || ''))) + ', ' + escapeHtml(JSON.stringify(String(acc.email || acc.id || 'this account'))) + ')\">' +
-                          '<i data-lucide=\"log-out\" style=\"width:14px;height:14px\"></i>' +
-                      '</button>'
-                ) +
+            (String(acc.type || '').toLowerCase() === 'custom'
+                ? '<button class="btn-icon" title="Remove custom provider" ' +
+                      'onclick="logoutAccount(' + escapeHtml(JSON.stringify(String(acc.id || ''))) + ', ' + escapeHtml(JSON.stringify(String(acc.provider || acc.id || 'this provider'))) + ')">' +
+                      '<i data-lucide="trash-2" style="width:14px;height:14px"></i>' +
+                    '</button>'
+                : '<button class="btn-icon" title="Logout account" ' +
+                      'onclick="logoutAccount(' + escapeHtml(JSON.stringify(String(acc.id || ''))) + ', ' + escapeHtml(JSON.stringify(String(acc.email || acc.id || 'this account'))) + ')">' +
+                      '<i data-lucide="log-out" style="width:14px;height:14px"></i>' +
+                    '</button>'
+            ) +
             '</td>' +
         '</tr>';
     }).join('');
@@ -2482,33 +2506,60 @@ async function toggleAccountStatus(id, checked, el) {
     // Disable the toggle while the request is in flight
     if (el) el.disabled = true;
 
+    const isCustom = String(id).startsWith('custom-');
+
     try {
-        const resp = await fetchManagementApi('auth-files/' + encodeURIComponent(id), {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ enabled: checked })
-        });
+        let resp;
+        if (isCustom) {
+            // Custom provider: use toggle-provider API (which auto-restarts)
+            const providerName = String(id).replace(/^custom-/, '');
+            resp = await fetch('api/system/toggle-provider/' + encodeURIComponent(providerName), {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ enabled: checked })
+            });
+            
+            if (resp.ok) {
+                const result = await resp.json();
+                showToast(checked ? 'Provider enabled, proxy restarting...' : 'Provider disabled, proxy restarting...', 'success');
+                // Wait for proxy to restart
+                setTimeout(() => refreshAll(), 3000);
+                return;
+            }
+        } else {
+            // Regular account: use auth-files API
+            resp = await fetchManagementApi('auth-files/' + encodeURIComponent(id), {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ enabled: checked })
+            });
+            
+            if (resp.ok) {
+                const result = await resp.json();
 
-        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+                // Update local state so UI stays in sync without a full refresh
+                const acc = accountsData.find(a => String(a.id) === String(id));
+                if (acc) {
+                    acc.disabled = !checked;
+                    acc.status = checked ? 'active' : 'disabled';
+                    acc.status_message = checked ? '' : 'Disabled from dashboard';
+                    acc.statusMeta = getAccountStatusMeta(acc);
+                }
 
-        const result = await resp.json();
+                showToast(checked ? 'Account enabled' : 'Account disabled', 'success');
 
-        // Update local state so UI stays in sync without a full refresh
-        const acc = accountsData.find(a => String(a.id) === String(id));
-        if (acc) {
-            acc.disabled = !checked;
-            acc.status = checked ? 'active' : 'disabled';
-            acc.status_message = checked ? '' : 'Disabled from dashboard';
-            acc.statusMeta = getAccountStatusMeta(acc);
+                // Update stats and re-render the table
+                updateDashboardStats();
+                renderAccountsTable(accountsData);
+                return;
+            }
         }
 
-        showToast(checked ? 'Account enabled' : 'Account disabled', 'success');
-
-        // Update stats and re-render the table
-        updateDashboardStats();
-        renderAccountsTable(accountsData);
+        throw new Error('HTTP ' + resp.status);
 
     } catch (err) {
         showToast('Toggle failed: ' + err.message, 'error');
@@ -2527,7 +2578,7 @@ async function logoutAccount(id, label) {
         const providerName = String(id).replace(/^custom-/, '');
         const confirmed = await showConfirm({
             title: 'Remove Custom Provider',
-            message: 'Remove "' + name + '"? This will remove it from config.yaml and the proxy will reload.',
+            message: 'Remove "' + name + '"? This will remove it from config.yaml and the proxy will restart.',
             confirmLabel: 'Remove',
             danger: true
         });
@@ -2538,8 +2589,9 @@ async function logoutAccount(id, label) {
                 headers: { 'X-Management-Key': MANAGEMENT_KEY }
             });
             if (r.ok) {
-                showToast('Custom provider removed', 'success');
-                await refreshAll();
+                showToast('Custom provider removed, proxy restarting...', 'success');
+                // Refresh after restart
+                setTimeout(() => refreshAll(), 3000);
                 if (document.getElementById('tab-accounts')?.classList.contains('active')) {
                     renderAccountsTable(accountsData);
                 }
@@ -2773,13 +2825,26 @@ async function submitAddProvider() {
         });
         
         if (r.ok) {
-            showToast('Provider added! Reboot proxy to apply.', 'success');
+            showToast('Provider added! Restarting proxy to apply...', 'success');
+            
+            // Auto-restart proxy to apply changes
+            try {
+                await fetchSystemApi('/api/system/restart', {
+                    method: 'POST',
+                    headers: { 'X-Management-Key': MANAGEMENT_KEY }
+                });
+            } catch (restartErr) {
+                console.log('Auto-restart skipped:', restartErr);
+            }
+            
             closeAddProviderModal();
             // Clear fields visually
             document.getElementById('apmName').value = '';
             document.getElementById('apmUrl').value = '';
             document.getElementById('apmKey').value = '';
-            setTimeout(() => window.scrollTo(0, 0), 100);
+            
+            // Refresh accounts after restart
+            setTimeout(() => refreshAll(), 3000);
         } else {
             const errBody = await r.json().catch(() => ({}));
             throw new Error(errBody.error || errBody.message || 'HTTP ' + r.status);
@@ -2809,7 +2874,8 @@ async function sysAction(action) {
         });
         if (r.ok) {
             showToast('Server ' + action + ' signal sent', 'success');
-            setTimeout(() => location.reload(), 2000);
+            // Refresh without full page reload - stay on current tab
+            setTimeout(() => refreshAll(), 2000);
         } else {
             throw new Error('HTTP ' + r.status);
         }

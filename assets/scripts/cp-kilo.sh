@@ -139,6 +139,24 @@ HIDDEN = {'text-embedding-3-small-inference', 'text-embedding-3-small',
           'text-embedding-ada-002', 'gemini-3.1-flash-image',
           'oswe-vscode-prime', 'oswe-vscode-secondary'}
 models = [m for m in models if m not in HIDDEN]
+# Deduplicate: e.g. claude-sonnet-4-5 == claude-sonnet-4.5
+import re
+def normalize_key(name):
+    return re.sub(r'-(\d+)-(\d+)(?=$|-)', r'-\1.\2', name)
+
+seen_normalized = {}
+deduped = []
+for m in models:
+    nk = normalize_key(m)
+    if nk not in seen_normalized:
+        seen_normalized[nk] = m
+        deduped.append(m)
+    else:
+        existing = seen_normalized[nk]
+        if '.' in m and '-' in existing.replace(m.split('.')[0], ''):
+            deduped = [m if x == existing else x for x in deduped]
+            seen_normalized[nk] = m
+models = deduped
 families = {}
 ORDER = ['Claude', 'GPT', 'Gemini', 'Grok', 'Other']
 for m in sorted(models):
@@ -219,21 +237,13 @@ except:
     models = []
 
 if not models:
-    print("[ERROR] No models found from API")
-    exit(1)
+    exit(0)
 
 # Build all models config for KiloCode
 kilo_models = {}
 
 for m in models:
     model_id = m.get("id", "")
-    
-    # Skip hidden models
-    HIDDEN = {'text-embedding-3-small-inference', 'text-embedding-3-small',
-              'text-embedding-ada-002', 'gemini-3.1-flash-image',
-              'oswe-vscode-prime', 'oswe-vscode-secondary'}
-    if model_id in HIDDEN:
-        continue
     
     display = model_id.replace("-", " ").title()
     
@@ -274,8 +284,10 @@ config = {
     "$schema": "https://kilo.ai/config.json",
     "provider": {
         "cliproxy": {
-            "npm": "@ai-sdk/openai-compatible",
             "name": "CLIProxy",
+            "id": "cliproxy",
+            "npm": "@ai-sdk/openai-compatible",
+            "env": [],
             "options": {
                 "baseURL": "http://localhost:8317/v1",
                 "apiKey": "sk-dummy"

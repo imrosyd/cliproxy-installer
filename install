@@ -709,16 +709,29 @@ install_cliproxy() {
         echo ""
     fi
 
-    # Never wipe config/auth during update to keep logged-in accounts intact.
-    if [ "$IS_UPDATE" = "true" ]; then
-        echo -e "${CYAN}[i] Update mode: preserving existing config and auth files${NC}"
-    else
-        clean_existing_configs "false" # Fresh install, clean everything
+    # Check if existing config/auth exists - if yes, skip entirely (never overwrite)
+    CONFIG_DIR="$HOME/.cliproxyapi"
+    HAS_EXISTING=false
+    if [ -d "$CONFIG_DIR" ]; then
+        if [ -f "$CONFIG_DIR/config.yaml" ]; then
+            HAS_EXISTING=true
+            echo -e "${CYAN}[i] Found existing config.yaml${NC}"
+        fi
+        if [ "$(ls -1 "$CONFIG_DIR"/*.json 2>/dev/null | wc -l)" -gt 0 ]; then
+            HAS_EXISTING=true
+            echo -e "${CYAN}[i] Found existing auth files (.json)${NC}"
+        fi
+    fi
+    
+    if [ "$HAS_EXISTING" = true ]; then
+        echo -e "${CYAN}[i] CLIProxy already installed with config/auth${NC}"
+        echo -e "${CYAN}[i] To reinstall fresh, please uninstall first: curl -fsSL .../install | bash -s -- -uninstall-cliproxy${NC}"
+        echo -e "${GREEN}[OK] Existing installation preserved.${NC}"
+        return 0
     fi
 
     echo -e "${YELLOW}>>> Starting CLIProxy Installation...${NC}"
 
-    CONFIG_DIR="$HOME/.cliproxyapi"
     BIN_DIR="$CONFIG_DIR/bin"
     SCRIPTS_DIR="$CONFIG_DIR/scripts"
 

@@ -180,39 +180,121 @@ setup_shortcuts() {
 clean_existing_configs() {
     echo -e "${YELLOW}>>> Cleaning existing configurations...${NC}"
     
-    # 1. CLIProxy API (current directory)
+    # Check if there's existing config/auth data to preserve
+    CONFIG_DIR="$HOME/.cliproxyapi"
+    HAS_EXISTING_CONFIG=false
+    HAS_EXISTING_AUTH=false
+    clean_choice="1"  # Default to preserve if non-interactive
+    
+    if [ -f "$CONFIG_DIR/config.yaml" ]; then
+        HAS_EXISTING_CONFIG=true
+    fi
+    
+    # Check for auth files (json files in config dir)
+    if [ -d "$CONFIG_DIR" ] && [ "$(ls -1 "$CONFIG_DIR"/*.json 2>/dev/null | wc -l)" -gt 0 ]; then
+        HAS_EXISTING_AUTH=true
+    fi
+    
+    # If existing config/auth found, offer to preserve (only if interactive)
+    if [ "$HAS_EXISTING_CONFIG" = true ] || [ "$HAS_EXISTING_AUTH" = true ]; then
+        # Check if running interactively (has a terminal)
+        if [ -t 0 ]; then
+            echo -e "${YELLOW}[!] Existing CLIProxy configuration detected!${NC}"
+            echo ""
+            echo -e "  ${GREEN}1${NC}  Preserve existing config & auth (Recommended)"
+            echo -e "  ${RED}2${NC}  Clean install (delete all data)"
+            echo ""
+            echo -ne "  ${BOLD}›${NC} Select ${DIM}(1-2)${NC}: "
+            read clean_choice < /dev/tty
+        else
+            echo -e "${CYAN}[i] Non-interactive mode: auto-preserving existing config & auth${NC}"
+            clean_choice="1"
+        fi
+        
+        if [ "$clean_choice" = "1" ]; then
+            echo -e "${CYAN}[i] Preserving existing configuration...${NC}"
+            
+            # Backup to a fixed location (not using $$ which can cause issues)
+            BACKUP_DIR="$HOME/.cliproxyapi_backup"
+            rm -rf "$BACKUP_DIR"
+            mkdir -p "$BACKUP_DIR"
+            
+            # Copy config
+            if [ -f "$CONFIG_DIR/config.yaml" ]; then
+                cp "$CONFIG_DIR/config.yaml" "$BACKUP_DIR/config.yaml"
+                echo -e "  ${DIM}Backed up config.yaml${NC}"
+            fi
+            
+            # Copy auth files
+            if [ -d "$CONFIG_DIR" ]; then
+                for f in "$CONFIG_DIR"/*.json; do
+                    [ -f "$f" ] && cp "$f" "$BACKUP_DIR/"
+                done
+                echo -e "  ${DIM}Backed up auth files${NC}"
+            fi
+            
+            echo -e "${YELLOW}>>> Cleaning for fresh install...${NC}"
+        fi
+    else
+        echo -e "${DIM}No existing configuration found, clean install${NC}"
+    fi
+    
+    # Always clean (remove directory)
     if [ -d "$HOME/.cliproxyapi" ]; then
         echo -e "  ${DIM}Removing ~/.cliproxyapi...${NC}"
         rm -rf "$HOME/.cliproxyapi"
     fi
 
-    # 2. Legacy directory (old name before rename)
+    # Legacy directory
     if [ -d "$HOME/.cli-proxy-api" ]; then
         echo -e "  ${DIM}Removing legacy ~/.cli-proxy-api...${NC}"
         rm -rf "$HOME/.cli-proxy-api"
     fi
 
-    # 3. Clean old binary locations (legacy: ~/bin/cliproxyapi)
+    # Clean old binary locations
     rm -f "$HOME/bin/cliproxyapi" 2>/dev/null
     rm -f "$HOME/bin/cliproxyapi-plus" 2>/dev/null
     rm -f "$HOME/bin/cp-db" 2>/dev/null
     rm -f "/usr/local/bin/cp-db" 2>/dev/null || true
 
-    # 4. Clean old PATH entries for ~/bin if empty
+    # Clean old PATH entries for ~/bin if empty
     if [ -d "$HOME/bin" ] && [ -z "$(ls -A "$HOME/bin" 2>/dev/null)" ]; then
         rmdir "$HOME/bin" 2>/dev/null || true
     fi
 
-    # Keep external tool configs to avoid wiping user setup.
+    # Keep external tool configs
     [ -f "$HOME/.config/opencode/opencode.json" ] && echo -e "  ${DIM}Preserving ~/.config/opencode/opencode.json${NC}"
     [ -f "$HOME/.claude/settings.json" ] && echo -e "  ${DIM}Preserving ~/.claude/settings.json${NC}"
     [ -f "$HOME/.factory/config.json" ] && echo -e "  ${DIM}Preserving ~/.factory/config.json${NC}"
 
+    # Restore backup if preserve was chosen
+    if [ "$clean_choice" = "1" ] && [ -d "$HOME/.cliproxyapi_backup" ]; then
+        echo -e "${CYAN}[i] Restoring preserved configuration...${NC}"
+        mkdir -p "$CONFIG_DIR"
+        
+        # Restore config
+        if [ -f "$HOME/.cliproxyapi_backup/config.yaml" ]; then
+            cp "$HOME/.cliproxyapi_backup/config.yaml" "$CONFIG_DIR/config.yaml"
+            echo -e "  ${DIM}Restored config.yaml${NC}"
+        fi
+        
+        # Restore auth files
+        for f in "$HOME/.cliproxyapi_backup"/*.json; do
+            [ -f "$f" ] && cp "$f" "$CONFIG_DIR/"
+        done
+        echo -e "  ${DIM}Restored auth files${NC}"
+        
+        # Clean up backup
+        rm -rf "$HOME/.cliproxyapi_backup"
+        echo -e "${GREEN}[OK] Existing configuration preserved!${NC}"
+    fi
+    
     echo -e "${GREEN}[OK] All old configurations cleared.${NC}"
 }
 
 install_cliproxy() {
     IS_UPDATE="${1:-false}"
+    FORCE_CLEAN="${2:-false}"
 
     if ! command -v go &> /dev/null; then
         echo -e "${RED}[Error] Go is not found!${NC}"
@@ -220,15 +302,32 @@ install_cliproxy() {
         exit 1
     fi
 
-    # Keep existing auth/config on update so accounts remain logged in.
-    if [ "$IS_UPDATE" = "true" ]; then
-        echo -e "${CYAN}[i] Update mode: preserving existing config and auth files${NC}"
-    else
-        clean_existing_configs
+    # Set CONFIG_DIR
+    CONFIG_DIR="$HOME/.cliproxyapi"
+    
+    # Check if existing config/auth exists - if yes, skip entirely (never overwrite)
+    HAS_EXISTING=false
+    if [ -d "$CONFIG_DIR" ]; then
+        if [ -f "$CONFIG_DIR/config.yaml" ]; then
+            HAS_EXISTING=true
+            echo -e "${CYAN}[i] Found existing config.yaml${NC}"
+        fi
+        if [ "$(ls -1 "$CONFIG_DIR"/*.json 2>/dev/null | wc -l)" -gt 0 ]; then
+            HAS_EXISTING=true
+            echo -e "${CYAN}[i] Found existing auth files (.json)${NC}"
+        fi
+    fi
+    
+    if [ "$HAS_EXISTING" = true ]; then
+        echo -e "${CYAN}[i] CLIProxy already installed with config/auth${NC}"
+        echo -e "${CYAN}[i] To reinstall fresh, please uninstall first: curl -fsSL .../install-linux | bash -s -- -uninstall-cliproxy${NC}"
+        echo -e "${GREEN}[OK] Existing installation preserved.${NC}"
+        return 0
     fi
 
     echo -e "${YELLOW}>>> Starting CLIProxy Installation...${NC}"
 
+    # Re-set CONFIG_DIR after clean
     CONFIG_DIR="$HOME/.cliproxyapi"
     BIN_DIR="$CONFIG_DIR/bin"
     SCRIPTS_DIR="$CONFIG_DIR/scripts"

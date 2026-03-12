@@ -383,7 +383,7 @@ def _load_providers_from_config(config_path: str) -> list:
             if current:
                 providers.append(current)
             name = stripped.split(':', 1)[1].strip().strip('"\'')
-            current = {'name': name, 'base_url': '', 'api_keys': [], 'models': []}
+            current = {'name': name, 'base_url': '', 'api_keys': [], 'models': [], 'enabled': True}
             continue
 
         if current is None:
@@ -395,6 +395,8 @@ def _load_providers_from_config(config_path: str) -> list:
             elif stripped.startswith('- api-key:'):
                 key = stripped.split(':', 1)[1].strip().strip('"\'')
                 current['api_keys'].append(key)
+            elif stripped.startswith('enabled:'):
+                current['enabled'] = stripped.split(':', 1)[1].strip().lower() == 'true'
         elif indent == 6:
             if stripped.startswith('- api-key:'):
                 key = stripped.split(':', 1)[1].strip().strip('"\'')
@@ -1212,6 +1214,98 @@ def _remove_provider_from_config(provider_name: str) -> bool:
     return True
 
 
+def _toggle_provider_in_config(provider_name: str, enabled: bool) -> bool:
+    """Enable or disable a named provider in the openai-compatibility section in config.yaml."""
+    provider_name = (provider_name or '').strip()
+    if not provider_name:
+        log('ERROR', "Provider name is empty")
+        return False
+
+    config_path = os.path.expanduser('~/.cliproxyapi/config.yaml')
+    if not os.path.exists(config_path):
+        log('ERROR', f"Config file not found: {config_path}")
+        return False
+
+    try:
+        with open(config_path, 'r') as f:
+            content = f.read()
+    except Exception as e:
+        log('ERROR', f"Failed to read config: {e}")
+        return False
+
+    # Find provider and update enabled field
+    new_lines = []
+    in_compat = False
+    found_provider = None
+    modified = False
+    
+    lines = content.split('\n')
+    for i, line in enumerate(lines):
+        stripped = line.lstrip()
+        
+        # Detect openai-compatibility section
+        if re.match(r'^openai-compatibility\s*:', stripped):
+            in_compat = True
+            new_lines.append(line)
+            continue
+        
+        # End of openai-compatibility section
+        if in_compat and stripped and not line.startswith(' ') and not line.startswith('\t'):
+            in_compat = False
+        
+        if not in_compat:
+            new_lines.append(line)
+            continue
+        
+        # Check for provider name at indent 2
+        indent = len(line) - len(stripped)
+        if indent == 2 and stripped.startswith('- name:'):
+            # Extract provider name
+            name_part = stripped[7:].strip().strip('"').strip("'")
+            if name_part == provider_name:
+                found_provider = True
+                new_lines.append(line)
+                # Add enabled field on next line
+                new_lines.append(f"    enabled: {str(enabled).lower()}")
+                modified = True
+                continue
+            else:
+                found_provider = False
+        
+        # If we're in the target provider, handle enabled field
+        if found_provider:
+            # Skip if this line is already an enabled field
+            if stripped.startswith('enabled:'):
+                # Replace the existing enabled field
+                new_lines.append(f"    enabled: {str(enabled).lower()}")
+                continue
+            
+            # If we hit another provider, we're done with this one
+            if indent == 2 and stripped.startswith('- name:'):
+                found_provider = None
+        
+        new_lines.append(line)
+    
+    if not modified:
+        log('ERROR', f"Provider not found in config: {provider_name}")
+        # Try alternative search - case insensitive
+        log('INFO', f"Searching for provider '{provider_name}' in config...")
+        for i, line in enumerate(lines):
+            if f"- name:" in line and provider_name.lower() in line.lower():
+                log('INFO', f"Found potential match at line {i+1}: {line}")
+        return False
+
+    try:
+        with _config_write_lock:
+            with open(config_path, 'w') as f:
+                f.write('\n'.join(new_lines))
+        log('INFO', f"Successfully toggled provider {provider_name} to enabled={enabled}")
+        return True
+    except Exception as e:
+        log('ERROR', f"Failed to write config: {e}")
+        return False
+
+
 def _cleanup_once():
     """Run cleanup once, even if called by both signal and atexit handlers."""
     global _cleanup_done
@@ -1521,8 +1615,19 @@ class UnifiedHandler(http.server.SimpleHTTPRequestHandler):
                     if "openai-compatibility:" not in content:
                         f.write("\nopenai-compatibility:")
                     f.write(append_str)
-                    
-                self._write_json({"status": "success"})
+                
+                # Auto restart to apply changes
+                stop_cliproxy()
+                time.sleep(1)
+                start_cliproxy()
+                
+                # Wait for backend to be fully ready
+                backend_ready = wait_for_backend_ready(timeout=10)
+                
+                if backend_ready:
+                    self._write_json({"status": "added_and_restarted", "backend_ready": True})
+                else:
+                    self._write_json({"status": "added_and_restarted", "backend_ready": False, "warning": "Backend may still be starting up"})
             except Exception as e:
                 self.send_error(500, str(e))
         elif self.path.startswith('/api/system/remove-provider/') and method == 'DELETE':
@@ -1532,7 +1637,47 @@ class UnifiedHandler(http.server.SimpleHTTPRequestHandler):
                     self._write_json({"error": "Missing provider name"}, status=400)
                     return
                 if _remove_provider_from_config(provider_name):
-                    self._write_json({"status": "removed", "name": provider_name})
+                    # Auto restart to apply changes
+                    stop_cliproxy()
+                    time.sleep(1)
+                    start_cliproxy()
+                    
+                    backend_ready = wait_for_backend_ready(timeout=10)
+                    
+                    if backend_ready:
+                        self._write_json({"status": "removed_and_restarted", "backend_ready": True})
+                    else:
+                        self._write_json({"status": "removed_and_restarted", "backend_ready": False, "warning": "Backend may still be starting up"})
+                else:
+                    self._write_json({"error": "Provider not found"}, status=404)
+            except Exception as e:
+                self.send_error(500, str(e))
+        elif self.path.startswith('/api/system/toggle-provider/') and method == 'PUT':
+            try:
+                # Extract provider name from path
+                provider_name = urllib.parse.unquote(self.path[len('/api/system/toggle-provider/'):]).strip()
+                if not provider_name:
+                    self._write_json({"error": "Missing provider name"}, status=400)
+                    return
+                
+                # Get enabled value from request body
+                content_length = int(self.headers.get('Content-Length', 0))
+                put_data = self.rfile.read(content_length) if content_length > 0 else b'{}'
+                payload = json.loads(put_data.decode('utf-8') or '{}')
+                enabled = bool(payload.get('enabled', True))
+                
+                if _toggle_provider_in_config(provider_name, enabled):
+                    # Auto restart to apply changes
+                    stop_cliproxy()
+                    time.sleep(1)
+                    start_cliproxy()
+                    
+                    backend_ready = wait_for_backend_ready(timeout=10)
+                    
+                    if backend_ready:
+                        self._write_json({"status": "updated_and_restarted", "backend_ready": True, "name": provider_name, "enabled": enabled})
+                    else:
+                        self._write_json({"status": "updated_and_restarted", "backend_ready": False, "warning": "Backend may still be starting up", "name": provider_name, "enabled": enabled})
                 else:
                     self._write_json({"error": "Provider not found"}, status=404)
             except Exception as e:
@@ -1590,6 +1735,19 @@ class UnifiedHandler(http.server.SimpleHTTPRequestHandler):
                 "usage": _usage_stats
             }
             self._write_json(response)
+            return
+
+        if self.path == '/v0/management/config' and method == 'GET':
+            # Return local config including openai-compatibility providers
+            config_path = os.path.expanduser('~/.cliproxyapi/config.yaml')
+            result = {'openai-compatibility': []}
+            try:
+                if os.path.exists(config_path):
+                    providers = _load_providers_from_config(config_path)
+                    result['openai-compatibility'] = providers
+            except Exception as e:
+                log('WARN', f"Failed to load config: {e}")
+            self._write_json(result)
             return
 
         parsed_path = urllib.parse.urlparse(self.path)
