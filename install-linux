@@ -346,128 +346,69 @@ install_cliproxy() {
     STATIC_DIR="$CONFIG_DIR/static"
     mkdir -p "$STATIC_DIR"
 
-    # Copy enhanced dashboard
-    echo -e "${YELLOW}Installing dashboard...${NC}"
-    DASHBOARD_SRC="$(dirname "$0")/assets/static/dashboard.html"
-    if [ -f "$DASHBOARD_SRC" ]; then
-        cp "$DASHBOARD_SRC" "$STATIC_DIR/dashboard.html"
-        echo -e "${GREEN}[OK] Dashboard installed from local assets${NC}"
-    else
-        # Fallback: try to download from GitHub
-        if curl -fsSL "https://raw.githubusercontent.com/imrosyd/cliproxy-installer/main/assets/static/dashboard.html" -o "$STATIC_DIR/dashboard.html" 2>/dev/null; then
-            echo -e "${GREEN}[OK] Dashboard downloaded from GitHub${NC}"
-        else
-            echo -e "${YELLOW}[!] Could not install dashboard${NC}"
-        fi
-    fi
+    install_asset() {
+        local label="$1"
+        local local_rel="$2"
+        local url="$3"
+        local dest="$4"
+        local chmod_exec="${5:-true}"
 
-    # Install quota-fetcher.py
-    echo -e "${YELLOW}Installing quota fetcher...${NC}"
-    QUOTA_SRC="$(dirname "$0")/assets/scripts/quota-fetcher.py"
-    if [ -f "$QUOTA_SRC" ]; then
-        cp "$QUOTA_SRC" "$SCRIPTS_DIR/quota-fetcher.py"
-        chmod +x "$SCRIPTS_DIR/quota-fetcher.py"
-        echo -e "${GREEN}[OK] Quota fetcher installed from local assets${NC}"
-    else
-        if curl -fsSL "https://raw.githubusercontent.com/imrosyd/cliproxy-installer/main/assets/scripts/quota-fetcher.py" -o "$SCRIPTS_DIR/quota-fetcher.py" 2>/dev/null; then
-            chmod +x "$SCRIPTS_DIR/quota-fetcher.py"
-            echo -e "${GREEN}[OK] Quota fetcher downloaded from GitHub${NC}"
+        echo -e "${YELLOW}Installing ${label}...${NC}"
+        local src
+        src="$(dirname "$0")/${local_rel}"
+        if [ -f "$src" ]; then
+            cp "$src" "$dest"
+            echo -e "${GREEN}[OK] ${label} installed from local assets${NC}"
         else
-            echo -e "${YELLOW}[!] Could not install quota fetcher${NC}"
+            if curl -fsSL "$url" -o "$dest" 2>/dev/null; then
+                echo -e "${GREEN}[OK] ${label} downloaded from GitHub${NC}"
+            else
+                echo -e "${YELLOW}[!] Could not install ${label}${NC}"
+                return 1
+            fi
         fi
-    fi
 
-    # Install unified-server.py (serves static files + proxies API)
-    echo -e "${YELLOW}Installing unified server...${NC}"
-    UNIFIED_SRC="$(dirname "$0")/unified-server.py"
-    if [ -f "$UNIFIED_SRC" ]; then
-        cp "$UNIFIED_SRC" "$SCRIPTS_DIR/unified-server.py"
-        chmod +x "$SCRIPTS_DIR/unified-server.py"
-        echo -e "${GREEN}[OK] Unified server installed from local assets${NC}"
-    else
-        if curl -fsSL "https://raw.githubusercontent.com/imrosyd/cliproxy-installer/main/unified-server.py" -o "$SCRIPTS_DIR/unified-server.py" 2>/dev/null; then
-            chmod +x "$SCRIPTS_DIR/unified-server.py"
-            echo -e "${GREEN}[OK] Unified server downloaded from GitHub${NC}"
-        else
-            echo -e "${YELLOW}[!] Could not install unified server${NC}"
+        if [ "$chmod_exec" = "true" ]; then
+            chmod +x "$dest" 2>/dev/null || true
         fi
-    fi
+        return 0
+    }
 
-    # Install cp-db command
-    echo -e "${YELLOW}Installing cp-db...${NC}"
-    CPDB_SRC="$(dirname "$0")/assets/scripts/cp-db.sh"
-    if [ -f "$CPDB_SRC" ]; then
-        cp "$CPDB_SRC" "$BIN_DIR/cp-db"
-        chmod +x "$BIN_DIR/cp-db"
-        echo -e "${GREEN}[OK] cp-db installed from local assets${NC}"
-    else
-        if curl -fsSL "https://raw.githubusercontent.com/imrosyd/cliproxy-installer/main/assets/scripts/cp-db.sh" -o "$BIN_DIR/cp-db" 2>/dev/null; then
-            chmod +x "$BIN_DIR/cp-db"
-            echo -e "${GREEN}[OK] cp-db downloaded from GitHub${NC}"
-        else
-            echo -e "${YELLOW}[!] Could not install cp-db command${NC}"
-        fi
-    fi
+    install_asset "script library" "assets/scripts/cp-lib.sh" \
+        "https://raw.githubusercontent.com/imrosyd/cliproxy-installer/main/assets/scripts/cp-lib.sh" \
+        "$SCRIPTS_DIR/cp-lib.sh" true
 
-    # Install cp-claude.sh
-    echo -e "${YELLOW}Installing cp-claude...${NC}"
-    CPCLOUD_SRC="$(dirname "$0")/assets/scripts/cp-claude.sh"
-    if [ -f "$CPCLOUD_SRC" ]; then
-        cp "$CPCLOUD_SRC" "$SCRIPTS_DIR/cp-claude.sh"
-        echo -e "${GREEN}[OK] cp-claude installed from local assets${NC}"
-    else
-        if curl -fsSL "https://raw.githubusercontent.com/imrosyd/cliproxy-installer/main/assets/scripts/cp-claude.sh" -o "$SCRIPTS_DIR/cp-claude.sh" 2>/dev/null; then
-            echo -e "${GREEN}[OK] cp-claude downloaded from GitHub${NC}"
-        else
-            echo -e "${YELLOW}[!] Could not install cp-claude${NC}"
-        fi
-    fi
-    chmod +x "$SCRIPTS_DIR/cp-claude.sh" 2>/dev/null
+    install_asset "dashboard" "assets/static/dashboard.html" \
+        "https://raw.githubusercontent.com/imrosyd/cliproxy-installer/main/assets/static/dashboard.html" \
+        "$STATIC_DIR/dashboard.html" false
 
-    # Install cp-opencode.sh
-    echo -e "${YELLOW}Installing cp-opencode...${NC}"
-    CPOPENCODE_SRC="$(dirname \"$0\")/assets/scripts/cp-opencode.sh"
-    if [ -f "$CPOPENCODE_SRC" ]; then
-        cp "$CPOPENCODE_SRC" "$SCRIPTS_DIR/cp-opencode.sh"
-        echo -e "${GREEN}[OK] cp-opencode installed from local assets${NC}"
-    else
-        if curl -fsSL "https://raw.githubusercontent.com/imrosyd/cliproxy-installer/main/assets/scripts/cp-opencode.sh" -o "$SCRIPTS_DIR/cp-opencode.sh" 2>/dev/null; then
-            echo -e "${GREEN}[OK] cp-opencode downloaded from GitHub${NC}"
-        else
-            echo -e "${YELLOW}[!] Could not install cp-opencode${NC}"
-        fi
-    fi
-    chmod +x "$SCRIPTS_DIR/cp-opencode.sh" 2>/dev/null
+    install_asset "quota fetcher" "assets/scripts/quota-fetcher.py" \
+        "https://raw.githubusercontent.com/imrosyd/cliproxy-installer/main/assets/scripts/quota-fetcher.py" \
+        "$SCRIPTS_DIR/quota-fetcher.py" true
 
-    # Install cp-kilo.sh
-    echo -e "${YELLOW}Installing cp-kilo...${NC}"
-    CPKILO_SRC="$(dirname \"$0\")/assets/scripts/cp-kilo.sh"
-    if [ -f "$CPKILO_SRC" ]; then
-        cp "$CPKILO_SRC" "$SCRIPTS_DIR/cp-kilo.sh"
-        echo -e "${GREEN}[OK] cp-kilo installed from local assets${NC}"
-    else
-        if curl -fsSL "https://raw.githubusercontent.com/imrosyd/cliproxy-installer/main/assets/scripts/cp-kilo.sh" -o "$SCRIPTS_DIR/cp-kilo.sh" 2>/dev/null; then
-            echo -e "${GREEN}[OK] cp-kilo downloaded from GitHub${NC}"
-        else
-            echo -e "${YELLOW}[!] Could not install cp-kilo${NC}"
-        fi
-    fi
-    chmod +x "$SCRIPTS_DIR/cp-kilo.sh" 2>/dev/null
+    install_asset "unified server" "unified-server.py" \
+        "https://raw.githubusercontent.com/imrosyd/cliproxy-installer/main/unified-server.py" \
+        "$SCRIPTS_DIR/unified-server.py" true
 
-    # Install cp-droid.sh
-    echo -e "${YELLOW}Installing cp-droid...${NC}"
-    CPDROID_SRC="$(dirname "$0")/assets/scripts/cp-droid.sh"
-    if [ -f "$CPDROID_SRC" ]; then
-        cp "$CPDROID_SRC" "$SCRIPTS_DIR/cp-droid.sh"
-        echo -e "${GREEN}[OK] cp-droid installed from local assets${NC}"
-    else
-        if curl -fsSL "https://raw.githubusercontent.com/imrosyd/cliproxy-installer/main/assets/scripts/cp-droid.sh" -o "$SCRIPTS_DIR/cp-droid.sh" 2>/dev/null; then
-            echo -e "${GREEN}[OK] cp-droid downloaded from GitHub${NC}"
-        else
-            echo -e "${YELLOW}[!] Could not install cp-droid${NC}"
-        fi
-    fi
-    chmod +x "$SCRIPTS_DIR/cp-droid.sh" 2>/dev/null
+    install_asset "cp-db" "assets/scripts/cp-db.sh" \
+        "https://raw.githubusercontent.com/imrosyd/cliproxy-installer/main/assets/scripts/cp-db.sh" \
+        "$BIN_DIR/cp-db" true
+
+    install_asset "cp-claude" "assets/scripts/cp-claude.sh" \
+        "https://raw.githubusercontent.com/imrosyd/cliproxy-installer/main/assets/scripts/cp-claude.sh" \
+        "$SCRIPTS_DIR/cp-claude.sh" true
+
+    install_asset "cp-opencode" "assets/scripts/cp-opencode.sh" \
+        "https://raw.githubusercontent.com/imrosyd/cliproxy-installer/main/assets/scripts/cp-opencode.sh" \
+        "$SCRIPTS_DIR/cp-opencode.sh" true
+
+    install_asset "cp-kilo" "assets/scripts/cp-kilo.sh" \
+        "https://raw.githubusercontent.com/imrosyd/cliproxy-installer/main/assets/scripts/cp-kilo.sh" \
+        "$SCRIPTS_DIR/cp-kilo.sh" true
+
+    install_asset "cp-droid" "assets/scripts/cp-droid.sh" \
+        "https://raw.githubusercontent.com/imrosyd/cliproxy-installer/main/assets/scripts/cp-droid.sh" \
+        "$SCRIPTS_DIR/cp-droid.sh" true
 
 
     # Clone & Build
@@ -551,299 +492,167 @@ EOF
         fi
     fi
 
-    # Helper Scripts
-    cat > "$SCRIPTS_DIR/stop.sh" <<EOF
-#!/bin/bash
-# ── Stop CLIProxy server (unified server on 8317 + backend on 8316) ──
+    install_asset "stop script" "assets/scripts/stop.sh" \
+        "https://raw.githubusercontent.com/imrosyd/cliproxy-installer/main/assets/scripts/stop.sh" \
+        "$SCRIPTS_DIR/stop.sh" true
 
-GREEN='\\033[0;32m'
-YELLOW='\\033[1;33m'
-NC='\\033[0m'
+    install_asset "start script" "assets/scripts/start.sh" \
+        "https://raw.githubusercontent.com/imrosyd/cliproxy-installer/main/assets/scripts/start.sh" \
+        "$SCRIPTS_DIR/start.sh" true
 
-echo -e "\${YELLOW}Stopping CLIProxy server...\${NC}"
-pkill -f "$HOME/.cliproxyapi/scripts/unified-server.py" || true
-pkill -f "$HOME/.cliproxyapi/bin/cliproxyapi" || true
-pkill -f "cliproxyapi.*\\.cliproxyapi/config.yaml" || true
-echo -e "\${GREEN}[OK] Server stopped\${NC}"
-EOF
-    chmod +x "$SCRIPTS_DIR/stop.sh"
+    install_asset "login script" "assets/scripts/login.sh" \
+        "https://raw.githubusercontent.com/imrosyd/cliproxy-installer/main/assets/scripts/login.sh" \
+        "$SCRIPTS_DIR/login.sh" true
 
-    cat > "$SCRIPTS_DIR/start.sh" <<EOF
-#!/bin/bash
+    install_asset "login-url script" "assets/scripts/login-url.sh" \
+        "https://raw.githubusercontent.com/imrosyd/cliproxy-installer/main/assets/scripts/login-url.sh" \
+        "$SCRIPTS_DIR/login-url.sh" true
 
-# ── Colors ──
-GREEN='\\033[0;32m'
-YELLOW='\\033[1;33m'
-NC='\\033[0m'
+    install_asset "cp-add-provider python script" "assets/scripts/cp-add-provider.py" \
+        "https://raw.githubusercontent.com/imrosyd/cliproxy-installer/main/assets/scripts/cp-add-provider.py" \
+        "$SCRIPTS_DIR/cp-add-provider.py" true
 
-echo -e "\${YELLOW}Stopping any existing CLIProxy instances...\${NC}"
-if [ -f "$SCRIPTS_DIR/stop.sh" ]; then
-    bash "$SCRIPTS_DIR/stop.sh" >/dev/null 2>&1
-else
-    pkill -f "$HOME/.cliproxyapi/scripts/unified-server.py" || true
-    pkill -f "$HOME/.cliproxyapi/bin/cliproxyapi" || true
-    pkill -f "cliproxyapi.*\\.cliproxyapi/config.yaml" || true
-fi
-echo -e "\${YELLOW}Starting CLIProxy on http://localhost:8317\${NC}"
-if [ -f "$SCRIPTS_DIR/unified-server.py" ] && command -v python3 &>/dev/null; then
-    python3 "$SCRIPTS_DIR/unified-server.py"
-else
-    echo -e "\${YELLOW}[!] Unified server not available, starting API-only mode\${NC}"
-    "$BIN_DIR/cliproxyapi" --config "$CONFIG_DIR/config.yaml"
-fi
-EOF
-    chmod +x "$SCRIPTS_DIR/start.sh"
+    install_asset "cp-add-provider script" "assets/scripts/cp-add-provider.sh" \
+        "https://raw.githubusercontent.com/imrosyd/cliproxy-installer/main/assets/scripts/cp-add-provider.sh" \
+        "$SCRIPTS_DIR/cp-add-provider.sh" true
 
-    cat > "$SCRIPTS_DIR/login.sh" <<EOF
-#!/bin/bash
-BINARY="$BIN_DIR/cliproxyapi"
-CONFIG="$CONFIG_DIR/config.yaml"
+    setup_droid_config() {
+        local python_bin
+        python_bin="$(command -v python3 2>/dev/null || true)"
+        if [ -z "$python_bin" ]; then
+            echo -e "${YELLOW}[!] Python3 not found; skipping Droid config injection${NC}"
+            return 0
+        fi
 
-# ── Colors ──
-GREEN='\\033[0;32m'
-YELLOW='\\033[1;33m'
-CYAN='\\033[0;36m'
-BOLD='\\033[1m'
-DIM='\\033[2m'
-NC='\\033[0m'
+        export CLIPROXY_DROID_FILE="$HOME/.factory/config.json"
+        export CLIPROXY_BASE_URL="http://localhost:8317/v1"
+        export CLIPROXY_API_KEY="sk-dummy"
 
-clear
-echo ""
-echo -e "\${CYAN}\${BOLD}  ══  CLIProxy Login  ══\${NC}"
-echo ""
-echo -e "  \${BOLD}\${GREEN}1\${NC}  Antigravity"
-echo -e "  \${BOLD}\${GREEN}2\${NC}  GitHub Copilot"
-echo -e "  \${BOLD}\${GREEN}3\${NC}  Gemini CLI"
-echo -e "  \${BOLD}\${GREEN}4\${NC}  Codex"
-echo -e "  \${BOLD}\${GREEN}5\${NC}  Claude"
-echo -e "  \${BOLD}\${GREEN}6\${NC}  Qwen"
-echo -e "  \${BOLD}\${GREEN}7\${NC}  iFlow"
-echo ""
-echo -e "  \${BOLD}\${RED}0\${NC}  Exit"
-echo ""
-echo -ne "  \${BOLD}›\${NC} Provider \${DIM}(0-7)\${NC}: "
-
-read -p "\$(echo -e '\${BOLD}›\${NC}') Select \$(echo -e '\${DIM}(0-7)\${NC}'): " c
-case \$c in
-    1) "\$BINARY" --config "\$CONFIG" -antigravity-login ;;
-    2) "\$BINARY" --config "\$CONFIG" -github-copilot-login ;;
-    3) "\$BINARY" --config "\$CONFIG" -login ;;
-    4) "\$BINARY" --config "\$CONFIG" -codex-login ;;
-    5) "\$BINARY" --config "\$CONFIG" -claude-login ;;
-    6) "\$BINARY" --config "\$CONFIG" -qwen-login ;;
-    7) "\$BINARY" --config "\$CONFIG" -iflow-login ;;
-    0) echo "Exiting..."; exit 0 ;;
-    *) echo -e "\${YELLOW}[!] Invalid choice.\${NC}" ;;
-esac
-EOF
-    chmod +x "$SCRIPTS_DIR/login.sh"
-
-    # Login URL Script (for VPS/headless - prints URL only, no browser)
-    cat > "$SCRIPTS_DIR/login-url.sh" <<EOF
-#!/bin/bash
-# ── Login script for VPS/headless servers - prints URL only, no browser opening ──
-BINARY="$BIN_DIR/cliproxyapi"
-CONFIG="$CONFIG_DIR/config.yaml"
-
-# Set BROWSER to echo to prevent browser opening
-export BROWSER=echo
-
-# ── Colors ──
-GREEN='\\033[0;32m'
-YELLOW='\\033[1;33m'
-CYAN='\\033[0;36m'
-BOLD='\\033[1m'
-DIM='\\033[2m'
-NC='\\033[0m'
-
-clear
-echo ""
-echo -e "\${CYAN}\${BOLD}  ══  CLIProxy Login (URL Mode)  ══\${NC}"
-echo ""
-echo -e "  \${BOLD}\${GREEN}1\${NC}  Antigravity"
-echo -e "  \${BOLD}\${GREEN}2\${NC}  GitHub Copilot"
-echo -e "  \${BOLD}\${GREEN}3\${NC}  Gemini CLI"
-echo -e "  \${BOLD}\${GREEN}4\${NC}  Codex"
-echo -e "  \${BOLD}\${GREEN}5\${NC}  Claude"
-echo -e "  \${BOLD}\${GREEN}6\${NC}  Qwen"
-echo -e "  \${BOLD}\${GREEN}7\${NC}  iFlow"
-echo ""
-echo -e "  \${BOLD}\${RED}0\${NC}  Exit"
-echo ""
-echo -ne "  \${BOLD}›\${NC} Provider \${DIM}(0-7)\${NC}: "
-
-read -p "\$(echo -e '\${BOLD}›\${NC}') Select \$(echo -e '\${DIM}(0-7)\${NC}'): " c
-case \$c in
-    1) "\$BINARY" --config "\$CONFIG" -antigravity-login ;;
-    2) "\$BINARY" --config "\$CONFIG" -github-copilot-login ;;
-    3) "\$BINARY" --config "\$CONFIG" -login ;;
-    4) "\$BINARY" --config "\$CONFIG" -codex-login ;;
-    5) "\$BINARY" --config "\$CONFIG" -claude-login ;;
-    6) "\$BINARY" --config "\$CONFIG" -qwen-login ;;
-    7) "\$BINARY" --config "\$CONFIG" -iflow-login ;;
-    0) echo "Exiting..."; exit 0 ;;
-    *) echo -e "\${YELLOW}[!] Invalid choice.\${NC}" ;;
-esac
-EOF
-    chmod +x "$SCRIPTS_DIR/login-url.sh"
-    # Add Provider Script (Interactive + Auto-Start)
-    cat > "$SCRIPTS_DIR/cp-add-provider.py" <<'EOF'
-import os
-import sys
+        "$python_bin" - <<'PY'
 import json
+import os
+import re
 import urllib.request
-import yaml
 
-CONFIG_PATH = os.path.expanduser("~/.cliproxyapi/config.yaml")
+droid_file = os.path.expanduser(os.environ.get("CLIPROXY_DROID_FILE", "~/.factory/config.json"))
+base_url = os.environ.get("CLIPROXY_BASE_URL", "http://localhost:8317/v1").rstrip("/")
+api_key = os.environ.get("CLIPROXY_API_KEY", "sk-dummy")
 
-def print_header():
-    print("\n  ══  CLIProxy - Add Custom Provider  ══\n")
-    print("This will add an OpenAI-Compatible endpoint")
-    print("seamlessly into your local configuration.\n")
+os.makedirs(os.path.dirname(droid_file), exist_ok=True)
 
-def get_input(prompt, required=True):
-    while True:
-        val = input(prompt).strip()
-        if val:
-            return val
-        if not required:
-            return ""
-        print("[!] This field is required.\n")
-
-def fetch_models(base_url, api_key):
-    print("\nFetching available models from API...")
-    url = base_url.rstrip("/") + "/models"
-    
+def fetch_models():
     try:
         req = urllib.request.Request(
-            url,
-            headers={"Authorization": f"Bearer {api_key}"}
+            base_url + "/models",
+            headers={"Authorization": f"Bearer {api_key}"},
+            method="GET",
         )
-        with urllib.request.urlopen(req, timeout=10) as response:
-            data = json.loads(response.read().decode())
-            models = data.get("data", [])
-            return [m.get("id") for m in models if m.get("id")]
-    except Exception as e:
-        print(f"[ERROR] Failed to fetch models: {e}")
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            return data.get("data", []) or []
+    except Exception:
         return []
 
-def main():
-    print_header()
-    provider_name = get_input("Provider Name (e.g., openai): ")
-    base_url = get_input("Base URL (e.g., https://api.openai.com/v1): ")
-    api_key = get_input("API Key (e.g., sk-...): ")
-    
-    models = fetch_models(base_url, api_key)
-    
-    if not models:
-        print("\n[!] No models could be auto-fetched.")
-        print("You can add models manually later in config.yaml.")
-        models_to_add = []
-    else:
-        print(f"[OK] Fast-fetched {len(models)} models!")
-        models_to_add = [{"name": m, "alias": m} for m in models]
-    
-    if not os.path.exists(CONFIG_PATH):
-        print(f"\n[ERROR] CLIProxy Config not found at {CONFIG_PATH}")
-        sys.exit(1)
-        
-    try:
-        with open(CONFIG_PATH, 'r') as f:
-            config = yaml.safe_load(f) or {}
-    except Exception as e:
-        print(f"\n[ERROR] Error reading config.yaml: {e}")
-        sys.exit(1)
-        
-    if "openai-compatibility" not in config or not config["openai-compatibility"]:
-        config["openai-compatibility"] = []
-        
-    for provider in config["openai-compatibility"]:
-        if provider.get("name") == provider_name:
-            print(f"\n[!] Provider '{provider_name}' already exists in config.yaml.")
-            sys.exit(1)
-            
-    new_provider = {
-        "name": provider_name,
-        "base-url": base_url,
-        "api-key-entries": [{"api-key": api_key}],
-        "models": models_to_add
-    }
-    
-    config["openai-compatibility"].append(new_provider)
-    
-    try:
-        with open(CONFIG_PATH, 'w') as f:
-            yaml.dump(config, f, default_flow_style=False, sort_keys=False)
-    except Exception as e:
-        print(f"\n[ERROR] Error saving config.yaml: {e}")
-        sys.exit(1)
-        
-    print("\n[OK] Successfully added custom provider to config.yaml!")
-    print("Please restart CLIProxy using `cp-start` to apply the changes.")
+def titleize(s: str) -> str:
+    s = s.replace("_", "-").replace(".", "-")
+    s = re.sub(r"-+", "-", s).strip("-")
+    return " ".join([p.capitalize() for p in s.split("-") if p])
 
-if __name__ == "__main__":
-    main()
-EOF
-
-    cat > "$SCRIPTS_DIR/cp-add-provider.sh" <<'EOF'
-#!/bin/bash
-if ! command -v python3 &> /dev/null; then
-    echo -e "\033[0;31m[ERROR] Python3 is not installed. Please install it to use cp-add-provider.\033[0m"
-    exit 1
-fi
-python3 "$HOME/.cliproxyapi/scripts/cp-add-provider.py"
-EOF
-    chmod +x "$SCRIPTS_DIR/cp-add-provider.sh"
-
-    # Droid Config Injection
-    # Linux Droid path might vary, usually ~/.factory or ~/.config/factory ??
-    # Assuming ~/.factory based on previous script, but user might need to adjust
-    DROID_FILE="$HOME/.factory/config.json"
-    mkdir -p "$(dirname "$DROID_FILE")"
-
-    # Define target models
-    cat > "/tmp/cliproxy_new_models.json" <<EOF
-{
-    "custom_models": [
-        { "model_display_name": "GPT-OSS 120B Medium [Antigravity]", "model": "gpt-oss-120b-medium", "base_url": "http://localhost:8317/v1", "api_key": "sk-dummy", "provider": "openai" },
-        { "model_display_name": "GPT-OSS 120B Large [Antigravity]", "model": "gpt-oss-120b-large", "base_url": "http://localhost:8317/v1", "api_key": "sk-dummy", "provider": "openai" },
-        { "model_display_name": "Claude Opus 4.5 Thinking [Antigravity]", "model": "gemini-claude-opus-4-5-thinking", "base_url": "http://localhost:8317/v1", "api_key": "sk-dummy", "provider": "openai" },
-        { "model_display_name": "Claude Sonnet 4.5 Thinking [Antigravity]", "model": "gemini-claude-sonnet-4-5-thinking", "base_url": "http://localhost:8317/v1", "api_key": "sk-dummy", "provider": "openai" },
-        { "model_display_name": "Claude Sonnet 4.5 [Antigravity]", "model": "gemini-claude-sonnet-4-5", "base_url": "http://localhost:8317/v1", "api_key": "sk-dummy", "provider": "openai" },
-        { "model_display_name": "Gemini 3 Pro [Antigravity]", "model": "gemini-3-pro-preview", "base_url": "http://localhost:8317/v1", "api_key": "sk-dummy", "provider": "openai" },
-        { "model_display_name": "Claude Opus 4.5 [Copilot]", "model": "claude-opus-4.5", "base_url": "http://localhost:8317/v1", "api_key": "sk-dummy", "provider": "openai" },
-        { "model_display_name": "GPT-5 Mini [Copilot]", "model": "gpt-5-mini", "base_url": "http://localhost:8317/v1", "api_key": "sk-dummy", "provider": "openai" },
-        { "model_display_name": "GPT-5.1 Codex Max [Codex]", "model": "gpt-5.1-codex-max", "base_url": "http://localhost:8317/v1", "api_key": "sk-dummy", "provider": "openai" },
-        { "model_display_name": "Gemini 3 Ultra [Antigravity]", "model": "gemini-3-ultra-preview", "base_url": "http://localhost:8317/v1", "api_key": "sk-dummy", "provider": "openai" },
-        { "model_display_name": "Llama 4 405B [Meta]", "model": "llama-4-405b-instruct", "base_url": "http://localhost:8317/v1", "api_key": "sk-dummy", "provider": "openai" },
-        { "model_display_name": "Nano Banana [Local]", "model": "nano-banana-v1", "base_url": "http://localhost:8317/v1", "api_key": "sk-dummy", "provider": "openai" },
-        { "model_display_name": "Gemini 2.5 Pro [Gemini]", "model": "gemini-2.5-pro", "base_url": "http://localhost:8317/v1", "api_key": "sk-dummy", "provider": "openai" },
-        { "model_display_name": "Qwen3 Coder Plus [Qwen]", "model": "qwen3-coder-plus", "base_url": "http://localhost:8317/v1", "api_key": "sk-dummy", "provider": "openai" },
-        { "model_display_name": "GLM 4.6 [iFlow]", "model": "glm-4.6", "base_url": "http://localhost:8317/v1", "api_key": "sk-dummy", "provider": "openai" },
-        { "model_display_name": "Claude Opus 4.5 [Kiro]", "model": "kiro-claude-opus-4.5", "base_url": "http://localhost:8317/v1", "api_key": "sk-dummy", "provider": "openai" },
-        { "model_display_name": "Claude Sonnet 4.5 [Kiro]", "model": "kiro-claude-sonnet-4.5", "base_url": "http://localhost:8317/v1", "api_key": "sk-dummy", "provider": "openai" },
-        { "model_display_name": "Claude Sonnet 4 [Kiro]", "model": "kiro-claude-sonnet-4", "base_url": "http://localhost:8317/v1", "api_key": "sk-dummy", "provider": "openai" },
-        { "model_display_name": "Claude Haiku 4.5 [Kiro]", "model": "kiro-claude-haiku-4.5", "base_url": "http://localhost:8317/v1", "api_key": "sk-dummy", "provider": "openai" }
-    ]
+display_names = {
+    "gemini-claude-opus-4-5-thinking": "Claude Opus 4.5 Thinking",
+    "gemini-claude-sonnet-4-5-thinking": "Claude Sonnet 4.5 Thinking",
+    "gemini-claude-sonnet-4-5": "Claude Sonnet 4.5",
+    "gemini-3-pro-preview": "Gemini 3 Pro",
+    "gemini-3-pro-image-preview": "Gemini 3 Pro Image",
+    "gemini-2.5-flash": "Gemini 2.5 Flash",
+    "gemini-2.5-flash-lite": "Gemini 2.5 Flash Lite",
+    "gemini-3-flash": "Gemini 3 Flash",
+    "gpt-oss-120b-medium": "GPT-OSS 120B Medium",
 }
-EOF
 
-    if [ ! -f "$DROID_FILE" ]; then
-        cp "/tmp/cliproxy_new_models.json" "$DROID_FILE"
-        echo -e "${GREEN}[OK] Droid config created.${NC}"
-    else
-        echo -e "${YELLOW}[!] config.json exists, checking for missing models...${NC}"
+provider_tags = {
+    "antigravity": "[Antigravity]",
+    "github-copilot": "[Copilot]",
+    "copilot": "[Copilot]",
+    "codex": "[Codex]",
+    "kiro": "[Kiro]",
+    "qwen": "[Qwen]",
+    "iflow": "[iFlow]",
+    "gemini": "[Gemini]",
+    "claude": "[Claude]",
+}
 
-        # Download and use shared merge utility
-        MERGE_UTIL="/tmp/merge_config_$$.go"
-        if curl -fsSL "https://raw.githubusercontent.com/imrosyd/cliproxy-installer/main/merge-config.go" -o "$MERGE_UTIL"; then
-            go run "$MERGE_UTIL" "$DROID_FILE" "/tmp/cliproxy_new_models.json"
-            rm -f "$MERGE_UTIL"
-        else
-            echo -e "${RED}[Error] Failed to download config merger. Skipping model merge.${NC}"
-        fi
-    fi
-    rm -f "/tmp/cliproxy_new_models.json"
+models = fetch_models()
+if not models:
+    print("Droid config: no models fetched from CLIProxy; skipping")
+    raise SystemExit(0)
+
+new_custom = []
+for m in models:
+    model_id = str(m.get("id") or "").strip()
+    if not model_id:
+        continue
+    owner = str(m.get("owned_by") or "unknown").strip().lower()
+
+    display = display_names.get(model_id) or titleize(model_id)
+    tag = provider_tags.get(owner) or f"[{owner.title()}]"
+    if tag not in display:
+        display = f"{display} {tag}"
+
+    new_custom.append(
+        {
+            "model_display_name": display,
+            "model": model_id,
+            "base_url": base_url,
+            "api_key": api_key,
+            "provider": "openai",
+        }
+    )
+
+def load_json(path: str):
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
+
+cfg = load_json(droid_file)
+existing = cfg.get("custom_models")
+if not isinstance(existing, list):
+    existing = []
+
+def key(item):
+    if not isinstance(item, dict):
+        return None
+    return (item.get("model"), item.get("base_url"), item.get("api_key"))
+
+seen = set()
+merged = []
+for item in existing:
+    k = key(item)
+    if k and k not in seen:
+        merged.append(item)
+        seen.add(k)
+
+added = 0
+for item in new_custom:
+    k = key(item)
+    if k and k not in seen:
+        merged.append(item)
+        seen.add(k)
+        added += 1
+
+cfg["custom_models"] = merged
+with open(droid_file, "w", encoding="utf-8") as f:
+    json.dump(cfg, f, indent=2, ensure_ascii=False)
+    f.write("\n")
+
+print(f"Droid config: merged {len(new_custom)} models, added {added}, total {len(merged)}")
+PY
+    }
+
+    setup_droid_config
 
 
     # CALL SHORTCUT SETUP

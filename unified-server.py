@@ -20,6 +20,7 @@ import tempfile
 import json
 import threading
 from datetime import datetime
+from typing import Optional, Tuple
 
 # Configuration
 PUBLIC_PORT = 8317      # Main entry point
@@ -193,7 +194,7 @@ def _build_model_alias_map(_models: list) -> dict:
     return {}
 
 
-def _find_best_match(requested: str) -> str | None:
+def _find_best_match(requested: str) -> Optional[str]:
     """
     Live token-similarity search: compare `requested` against every chat-capable
     model currently in the backend and return the closest match.
@@ -354,7 +355,7 @@ def _load_providers_from_config(config_path: str) -> list:
         return providers
 
     in_compat = False
-    current: dict | None = None
+    current = None
 
     for raw in lines:
         line = raw.rstrip()
@@ -718,7 +719,7 @@ def _build_failover_candidates(requested_model: str, config_path: str) -> list:
 
 
 def _direct_request(base_url: str, api_key: str, path: str,
-                    method: str, headers: dict, data: bytes | None) -> tuple:
+                    method: str, headers: dict, data: Optional[bytes]) -> tuple:
     """
     Make a request directly to provider base_url (bypass backend).
     Returns (status_code, response_headers, body_bytes).
@@ -1153,7 +1154,7 @@ def _remove_provider_from_config(provider_name: str) -> bool:
     in_compat = False
     skip_block = False
     # indent of the current provider entry (the "  - name:" line)
-    block_indent: int | None = None
+    block_indent = None
     found = False
 
     for raw in lines:
@@ -1416,6 +1417,18 @@ class UnifiedHandler(http.server.SimpleHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(json.dumps(payload).encode('utf-8'))
 
+    def _read_json_body(self) -> dict:
+        try:
+            content_length = int(self.headers.get('Content-Length', 0))
+        except Exception:
+            content_length = 0
+
+        raw = self.rfile.read(content_length) if content_length > 0 else b'{}'
+        try:
+            return json.loads(raw.decode('utf-8') or '{}')
+        except Exception:
+            raise ValueError("Invalid JSON body")
+
     def do_OPTIONS(self):
         self.send_response(200)
         self.end_headers()
@@ -1528,9 +1541,7 @@ class UnifiedHandler(http.server.SimpleHTTPRequestHandler):
             self._write_json(state)
         elif self.path == '/api/system/login' and method == 'POST':
             try:
-                content_length = int(self.headers.get('Content-Length', 0))
-                post_data = self.rfile.read(content_length)
-                data = json.loads(post_data.decode('utf-8'))
+                data = self._read_json_body()
 
                 provider = str(data.get('provider', '')).strip()
                 if not provider:
@@ -1552,9 +1563,7 @@ class UnifiedHandler(http.server.SimpleHTTPRequestHandler):
                 self.send_error(500, str(e))
         elif self.path == '/api/system/add-provider' and method == 'POST':
             try:
-                content_length = int(self.headers.get('Content-Length', 0))
-                post_data = self.rfile.read(content_length)
-                data = json.loads(post_data.decode('utf-8'))
+                data = self._read_json_body()
                 
                 name = data.get('name', '').strip()
                 base_url = data.get('base_url', '').strip()
@@ -1661,9 +1670,7 @@ class UnifiedHandler(http.server.SimpleHTTPRequestHandler):
                     return
                 
                 # Get enabled value from request body
-                content_length = int(self.headers.get('Content-Length', 0))
-                put_data = self.rfile.read(content_length) if content_length > 0 else b'{}'
-                payload = json.loads(put_data.decode('utf-8') or '{}')
+                payload = self._read_json_body()
                 enabled = bool(payload.get('enabled', True))
                 
                 if _toggle_provider_in_config(provider_name, enabled):
@@ -1695,9 +1702,7 @@ class UnifiedHandler(http.server.SimpleHTTPRequestHandler):
                 self.send_error(500, str(e))
         elif self.path == '/api/system/raw-config' and method == 'POST':
             try:
-                content_length = int(self.headers.get('Content-Length', 0))
-                post_data = self.rfile.read(content_length)
-                data = json.loads(post_data.decode('utf-8'))
+                data = self._read_json_body()
                 
                 yaml_content = data.get('yaml', '')
                 if not yaml_content:
@@ -1965,7 +1970,7 @@ class UnifiedHandler(http.server.SimpleHTTPRequestHandler):
         log('FAILOVER', "All candidates exhausted")
         self._send_no_candidate_error(resolved_model, last_error_body)
 
-    def _extract_model(self, data: bytes | None) -> str:
+    def _extract_model(self, data: Optional[bytes]) -> str:
         """Extract model name from JSON request body."""
         if not data:
             return ''
@@ -1975,7 +1980,7 @@ class UnifiedHandler(http.server.SimpleHTTPRequestHandler):
         except Exception:
             return ''
 
-    def _rewrite_model(self, data: bytes | None, new_model: str) -> bytes | None:
+    def _rewrite_model(self, data: Optional[bytes], new_model: str) -> Optional[bytes]:
         """Return a copy of the request body with model field replaced."""
         if not data or not new_model:
             return data
@@ -2031,7 +2036,7 @@ class UnifiedHandler(http.server.SimpleHTTPRequestHandler):
             pass
         _track_request(self.path, success, tokens)
 
-    def _send_no_candidate_error(self, model: str, detail: bytes | None = None):
+    def _send_no_candidate_error(self, model: str, detail: Optional[bytes] = None):
         msg = {
             "error": {
                 "message": f"All providers exhausted for model '{model}'. No available quota.",

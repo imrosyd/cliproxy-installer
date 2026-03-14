@@ -1,107 +1,42 @@
 #!/bin/bash
 
-# ── Colors ──
-GREEN='\033[0;32m'
-RED='\033[0;31m'
-YELLOW='\033[1;33m'
-CYAN='\033[0;36m'
-BOLD='\033[1m'
-DIM='\033[2m'
-NC='\033[0m'
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+LIB_PATH="$HOME/.cliproxyapi/scripts/cp-lib.sh"
+if [ -f "$LIB_PATH" ]; then
+    # shellcheck source=/dev/null
+    . "$LIB_PATH"
+elif [ -f "$SCRIPT_DIR/cp-lib.sh" ]; then
+    # shellcheck source=/dev/null
+    . "$SCRIPT_DIR/cp-lib.sh"
+else
+    echo "[ERROR] Missing $LIB_PATH. Please run cp-update or reinstall CLIProxy."
+    exit 1
+fi
+cp_init_colors
 
-# ── CLIProxy Dashboard Launcher ──
-# Checks if server is running, starts if needed, then opens dashboard
+# CLIProxy Dashboard Launcher: memastikan server hidup, update quota, lalu buka dashboard.
 
 # Add timestamp to force cache busting
 TIMESTAMP=$(date +%s)
 DASHBOARD_URL="http://localhost:8317/dashboard.html?v=$TIMESTAMP"
 PORT=8317
 
-echo -e "${CYAN}${BOLD}╔═══════════════════════════════════════════════════════╗"
-echo -e "║              CLIProxy Dashboard v2.0                   ║"
-echo -e "╚═══════════════════════════════════════════════════════╝${NC}"
-echo ""
+cp_print_header "Dashboard" "URL: http://localhost:$PORT/"
 
-# Portable port check: tries ss, then netstat, then lsof
-check_port() {
-    local port=$1
-    if command -v ss &>/dev/null; then
-        ss -tlnp 2>/dev/null | grep -q ":$port "
-        return $?
-    fi
-    if command -v netstat &>/dev/null; then
-        netstat -tlnp 2>/dev/null | grep -q ":$port "
-        return $?
-    fi
-    if command -v lsof &>/dev/null; then
-        lsof -i :"$port" -sTCP:LISTEN &>/dev/null
-        return $?
-    fi
-    return 1
-}
-
-# Check if server is already running
-if check_port $PORT; then
-    echo -e "${GREEN}[OK] Server already running on port $PORT${NC}"
-else
-    echo -e "${YELLOW}[!] Server not running, starting now...${NC}"
-    
-    # Determine start command
-    CP_START_CMD=""
-    if command -v cp-start >/dev/null 2>&1; then
-        CP_START_CMD="cp-start"
-    elif [ -x "$HOME/.cliproxyapi/scripts/start.sh" ]; then
-        CP_START_CMD="$HOME/.cliproxyapi/scripts/start.sh"
-    fi
-
-    if [ -n "$CP_START_CMD" ]; then
-        "$CP_START_CMD" >/dev/null 2>&1 &
-        echo -e "${YELLOW}Waiting for server to start...${NC}"
-        
-        # Wait up to 10 seconds for server to start
-        for i in {1..10}; do
-            sleep 1
-            if check_port $PORT; then
-                echo -e "${GREEN}[OK] Server started successfully${NC}"
-                break
-            fi
-            if [ $i -eq 10 ]; then
-                echo -e "${RED}[ERROR] Server failed to start. Please check logs.${NC}"
-                exit 1
-            fi
-        done
-    else
-        echo -e "${RED}[ERROR] cp-start command not found. Please install CLIProxy first.${NC}"
-        exit 1
-    fi
-fi
+cp_ensure_server_running "$PORT" || exit 1
 
 QUOTA_FETCHER="$HOME/.cliproxyapi/scripts/quota-fetcher.py"
-if [ -f "$QUOTA_FETCHER" ] && command -v python3 >/dev/null 2>&1; then
-    echo -e "${YELLOW}Fetching quota data...${NC}"
-    python3 "$QUOTA_FETCHER" 2>/dev/null
-    echo -e "${GREEN}[OK] Quota data updated.${NC}"
+PYTHON_BIN="$(cp_get_python_bin)"
+if [ -f "$QUOTA_FETCHER" ] && [ -n "$PYTHON_BIN" ]; then
+    cp_info "Fetching quota data..."
+    "$PYTHON_BIN" "$QUOTA_FETCHER" 2>/dev/null || true
+    CRON_CMD="*/10 * * * * $PYTHON_BIN $HOME/.cliproxyapi/scripts/quota-fetcher.py >/dev/null 2>&1"
+    cp_ensure_cron_contains "quota-fetcher.py" "$CRON_CMD"
+    cp_ok "Quota data updated."
 fi
 
-echo ""
-echo -e "${YELLOW}Opening dashboard: ${BOLD}$DASHBOARD_URL${NC}"
-echo ""
+cp_info "Opening dashboard: $DASHBOARD_URL"
 
-# Open dashboard in default browser
-if [[ "$OSTYPE" == "darwin"* ]]; then
-    # macOS
-    open "$DASHBOARD_URL"
-elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
-    # Linux
-    if command -v xdg-open >/dev/null 2>&1; then
-        xdg-open "$DASHBOARD_URL"
-    elif command -v gnome-open >/dev/null 2>&1; then
-        gnome-open "$DASHBOARD_URL"
-    else
-        echo "Please open manually: $DASHBOARD_URL"
-    fi
-else
-    echo "Please open manually: $DASHBOARD_URL"
-fi
+cp_open_url "$DASHBOARD_URL"
 
-echo -e "${GREEN}[OK] Dashboard opened successfully!${NC}"
+cp_ok "Dashboard opened."

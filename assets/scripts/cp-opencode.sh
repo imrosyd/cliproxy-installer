@@ -1,13 +1,18 @@
 #!/bin/bash
 
-# ── Colors ──
-GREEN='\033[0;32m'
-RED='\033[0;31m'
-YELLOW='\033[1;33m'
-CYAN='\033[0;36m'
-BOLD='\033[1m'
-DIM='\033[2m'
-NC='\033[0m'
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+LIB_PATH="$HOME/.cliproxyapi/scripts/cp-lib.sh"
+if [ -f "$LIB_PATH" ]; then
+    # shellcheck source=/dev/null
+    . "$LIB_PATH"
+elif [ -f "$SCRIPT_DIR/cp-lib.sh" ]; then
+    # shellcheck source=/dev/null
+    . "$SCRIPT_DIR/cp-lib.sh"
+else
+    echo "[ERROR] Missing $LIB_PATH. Please run cp-update or reinstall CLIProxy."
+    exit 1
+fi
+cp_init_colors
 
 # ── Configuration ──
 PROXY_URL="http://localhost:8317"
@@ -16,101 +21,17 @@ PORT=8317
 OPENCODE_CONFIG_DIR="$HOME/.config/opencode"
 OPENCODE_CONFIG="$OPENCODE_CONFIG_DIR/opencode.json"
 
-echo -e "${CYAN}${BOLD}  ══  CLIProxy + OpenCode  ══${NC}"
-echo ""
-
-# Portable port check: tries ss, then netstat, then lsof
-check_port() {
-    local port=$1
-    if command -v ss &>/dev/null; then
-        ss -tlnp 2>/dev/null | grep -q ":$port "
-        return $?
-    fi
-    if command -v netstat &>/dev/null; then
-        netstat -tlnp 2>/dev/null | grep -q ":$port "
-        return $?
-    fi
-    if command -v lsof &>/dev/null; then
-        lsof -i :"$port" -sTCP:LISTEN &>/dev/null
-        return $?
-    fi
-    return 1
-}
-
-check_server() {
-    check_port $PORT
-}
+cp_print_header "OpenCode" "Proxy: $PROXY_URL"
 
 # If arguments are provided, skip interactive mode and pass directly to opencode
 if [ $# -gt 0 ]; then
-    # Auto-start proxy server if not running
-    if ! check_server; then
-        echo -e "${YELLOW}[!] CLIProxy server not running on port $PORT. Auto-starting...${NC}"
-
-        CP_START_CMD=""
-        if command -v cp-start > /dev/null 2>&1; then
-            CP_START_CMD="cp-start"
-        elif [ -x "$HOME/.cliproxyapi/scripts/start.sh" ]; then
-            CP_START_CMD="$HOME/.cliproxyapi/scripts/start.sh"
-        fi
-
-        if [ -n "$CP_START_CMD" ]; then
-            "$CP_START_CMD" > /dev/null 2>&1 &
-            echo -e "${YELLOW}Waiting for server...${NC}"
-
-            for i in {1..10}; do
-                sleep 1
-                if check_server; then
-                    echo -e "${GREEN}[OK] Server started.${NC}"
-                    break
-                fi
-                if [ $i -eq 10 ]; then
-                    echo -e "${RED}[ERROR] Failed to auto-start server.${NC}"
-                    exit 1
-                fi
-            done
-            sleep 1
-        else
-            echo -e "${RED}[ERROR] cp-start command not found. Cannot auto-start.${NC}"
-            exit 1
-        fi
-    fi
-
+    cp_ensure_server_running "$PORT" || exit 1
+    sleep 1
     exec opencode "$@"
 fi
 
-# Auto-start proxy server if not running
-if ! check_server; then
-    echo -e "${YELLOW}[!] CLIProxy server not running on port $PORT. Auto-starting...${NC}"
-
-    CP_START_CMD=""
-    if command -v cp-start > /dev/null 2>&1; then
-        CP_START_CMD="cp-start"
-    elif [ -x "$HOME/.cliproxyapi/scripts/start.sh" ]; then
-        CP_START_CMD="$HOME/.cliproxyapi/scripts/start.sh"
-    fi
-
-    if [ -n "$CP_START_CMD" ]; then
-        "$CP_START_CMD" > /dev/null 2>&1 &
-        echo -e "${YELLOW}Waiting for server...${NC}"
-
-        for i in {1..10}; do
-            sleep 1
-            if check_server; then
-                echo -e "${GREEN}[OK] Server started.${NC}"
-                break
-            fi
-            if [ $i -eq 10 ]; then
-                echo -e "${RED}[ERROR] Failed to auto-start server.${NC}"
-                exit 1
-            fi
-        done
-        sleep 1
-    else
-        echo -e "${RED}[ERROR] cp-start command not found. Cannot auto-start.${NC}"
-        exit 1
-    fi
-fi
+cp_ensure_server_running "$PORT" || exit 1
+sleep 1
 
 # Interactive Mode: Fetch and select models
 echo -e "${YELLOW}Fetching available models...${NC}"

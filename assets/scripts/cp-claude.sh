@@ -1,18 +1,25 @@
 #!/bin/bash
 
-# ── Colors ──
-GREEN='\033[0;32m'
-RED='\033[0;31m'
-YELLOW='\033[1;33m'
-CYAN='\033[0;36m'
-BOLD='\033[1m'
-DIM='\033[2m'
-NC='\033[0m'
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+LIB_PATH="$HOME/.cliproxyapi/scripts/cp-lib.sh"
+if [ -f "$LIB_PATH" ]; then
+    # shellcheck source=/dev/null
+    . "$LIB_PATH"
+elif [ -f "$SCRIPT_DIR/cp-lib.sh" ]; then
+    # shellcheck source=/dev/null
+    . "$SCRIPT_DIR/cp-lib.sh"
+else
+    echo "[ERROR] Missing $LIB_PATH. Please run cp-update or reinstall CLIProxy."
+    exit 1
+fi
+cp_init_colors
 
 # ── Configuration ──
 PROXY_URL="http://localhost:8317"
 API_KEY="sk-dummy"
 PORT=8317
+
+cp_print_header "Claude Code" "Proxy: $PROXY_URL"
 
 # Export environment variables for Claude Code
 export ANTHROPIC_BASE_URL="$PROXY_URL"
@@ -28,24 +35,6 @@ for arg in "$@"; do
         CLAUDE_ARGS+=("$arg")
     fi
 done
-
-# Portable port check: tries ss, then netstat, then lsof
-check_port() {
-    local port=$1
-    if command -v ss &>/dev/null; then
-        ss -tlnp 2>/dev/null | grep -q ":$port "
-        return $?
-    fi
-    if command -v netstat &>/dev/null; then
-        netstat -tlnp 2>/dev/null | grep -q ":$port "
-        return $?
-    fi
-    if command -v lsof &>/dev/null; then
-        lsof -i :"$port" -sTCP:LISTEN &>/dev/null
-        return $?
-    fi
-    return 1
-}
 
 # Ensure Superpowers plugin is installed once (best-effort)
 SUPERPOWERS_MARKER="$HOME/.cliproxyapi/.superpowers_installed"
@@ -87,11 +76,6 @@ ensure_superpowers() {
 }
 
 
-# Function to check if server is running
-check_server() {
-    check_port $PORT
-}
-
 ensure_superpowers
 
 # If arguments are provided, pass them directly to claude
@@ -99,41 +83,8 @@ if [ ${#CLAUDE_ARGS[@]} -gt 0 ]; then
     exec claude "${CLAUDE_ARGS[@]}"
 fi
 
-# Auto-start logic
-if ! check_server; then
-    echo -e "${YELLOW}[!] Server not running on port $PORT. Auto-starting...${NC}"
-    
-    # Determine start command
-    CP_START_CMD=""
-    if command -v cp-start >/dev/null 2>&1; then
-        CP_START_CMD="cp-start"
-    elif [ -x "$HOME/.cliproxyapi/scripts/start.sh" ]; then
-        CP_START_CMD="$HOME/.cliproxyapi/scripts/start.sh"
-    fi
-
-    if [ -n "$CP_START_CMD" ]; then
-        "$CP_START_CMD" >/dev/null 2>&1 &
-        echo -e "${YELLOW}Waiting for server...${NC}"
-        
-        # Wait up to 10 seconds
-        for i in {1..10}; do
-            sleep 1
-            if check_server; then
-                echo -e "${GREEN}[OK] Server started.${NC}"
-                break
-            fi
-            if [ $i -eq 10 ]; then
-                echo -e "${RED}[ERROR] Failed to auto-start server.${NC}"
-                exit 1
-            fi
-        done
-        # Give it a small extra buffer for API readiness
-        sleep 1
-    else
-        echo -e "${RED}[ERROR] cp-start command not found. Cannot auto-start.${NC}"
-        exit 1
-    fi
-fi
+cp_ensure_server_running "$PORT" || exit 1
+sleep 1
 
 # Interactive Mode: Fetch and select models
 echo -e "${YELLOW}Fetching available models...${NC}"

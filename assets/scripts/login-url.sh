@@ -1,13 +1,19 @@
 #!/bin/bash
 # Login script for VPS/headless servers — prints URL only, no browser opening
 
-# ── Colors ──
-GREEN='\033[0;32m'
-RED='\033[0;31m'
-CYAN='\033[0;36m'
-BOLD='\033[1m'
-DIM='\033[2m'
-NC='\033[0m'
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+LIB_PATH="$HOME/.cliproxyapi/scripts/cp-lib.sh"
+if [ -f "$LIB_PATH" ]; then
+    # shellcheck source=/dev/null
+    . "$LIB_PATH"
+elif [ -f "$SCRIPT_DIR/cp-lib.sh" ]; then
+    # shellcheck source=/dev/null
+    . "$SCRIPT_DIR/cp-lib.sh"
+else
+    echo "[ERROR] Missing $LIB_PATH. Please run cp-update or reinstall CLIProxy."
+    exit 1
+fi
+cp_init_colors
 
 BINARY="$HOME/.cliproxyapi/bin/cliproxyapi"
 CONFIG="$HOME/.cliproxyapi/config.yaml"
@@ -16,8 +22,7 @@ CONFIG="$HOME/.cliproxyapi/config.yaml"
 export BROWSER=echo
 
 clear
-echo -e "${CYAN}${BOLD}  ══  CLIProxy Login (URL Mode)  ══${NC}"
-echo ""
+cp_print_header "Login (URL Mode)" "Mode headless: tidak membuka browser"
 echo -e "  ${BOLD}${GREEN}1${NC}  Antigravity"
 echo -e "  ${BOLD}${GREEN}2${NC}  GitHub Copilot"
 echo -e "  ${BOLD}${GREEN}3${NC}  Gemini CLI"
@@ -28,8 +33,7 @@ echo -e "  ${BOLD}${GREEN}7${NC}  iFlow"
 echo ""
 echo -e "  ${BOLD}${RED}0${NC}  Exit"
 echo ""
-echo -ne "  ${BOLD}›${NC} Provider ${DIM}(0-7)${NC}: "
-read c
+cp_prompt "Provider ${DIM}(0-7)${NC}" c
 case $c in
     1) "$BINARY" --config "$CONFIG" -antigravity-login ;;
     2) "$BINARY" --config "$CONFIG" -github-copilot-login ;;
@@ -39,5 +43,5 @@ case $c in
     6) "$BINARY" --config "$CONFIG" -qwen-login ;;
     7) "$BINARY" --config "$CONFIG" -iflow-login ;;
     0) echo "Exiting..."; exit 0 ;;
-    *) echo "Invalid choice." ;;
+    *) cp_warn "Invalid choice." ;;
 esac

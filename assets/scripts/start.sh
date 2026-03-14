@@ -1,20 +1,34 @@
 #!/bin/bash
 
-# ── Colors ──
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-NC='\033[0m'
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+LIB_PATH="$HOME/.cliproxyapi/scripts/cp-lib.sh"
+if [ -f "$LIB_PATH" ]; then
+    # shellcheck source=/dev/null
+    . "$LIB_PATH"
+elif [ -f "$SCRIPT_DIR/cp-lib.sh" ]; then
+    # shellcheck source=/dev/null
+    . "$SCRIPT_DIR/cp-lib.sh"
+else
+    echo "[ERROR] Missing $LIB_PATH. Please run cp-update or reinstall CLIProxy."
+    exit 1
+fi
+cp_init_colors
 
-echo -e "${YELLOW}Stopping any existing CLIProxy instances...${NC}"
+cp_print_header "Start Proxy" "Endpoint: http://localhost:8317"
+
+cp_info "Stopping any existing CLIProxy instances..."
 if [ -f "$HOME/.cliproxyapi/scripts/stop.sh" ]; then
     bash "$HOME/.cliproxyapi/scripts/stop.sh" >/dev/null 2>&1
 fi
-echo -e "${YELLOW}Starting CLIProxy on http://localhost:8317${NC}"
-if [ -f "$HOME/.cliproxyapi/scripts/unified-server.py" ] && command -v python3 &>/dev/null; then
-    python3 "$HOME/.cliproxyapi/scripts/unified-server.py"
+cp_info "Starting CLIProxy..."
+PYTHON_BIN="$(cp_get_python_bin)"
+if [ -f "$HOME/.cliproxyapi/scripts/unified-server.py" ] && [ -n "$PYTHON_BIN" ]; then
+    "$PYTHON_BIN" "$HOME/.cliproxyapi/scripts/unified-server.py"
 else
-    echo -e "${YELLOW}[!] Unified server not available, starting API-only mode${NC}"
+    cp_warn "Unified server not available, starting API-only mode"
     if [ -x "$HOME/.cliproxyapi/bin/cliproxyapi" ]; then
         "$HOME/.cliproxyapi/bin/cliproxyapi" --config "$HOME/.cliproxyapi/config.yaml"
+    else
+        cp_die "Backend binary not found at ~/.cliproxyapi/bin/cliproxyapi"
     fi
 fi

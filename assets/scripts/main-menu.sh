@@ -1,12 +1,18 @@
 #!/bin/bash
 
-# ── Colors ──
-GREEN='\033[0;32m'
-RED='\033[0;31m'
-CYAN='\033[0;36m'
-BOLD='\033[1m'
-DIM='\033[2m'
-NC='\033[0m'
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+LIB_PATH="$HOME/.cliproxyapi/scripts/cp-lib.sh"
+if [ -f "$LIB_PATH" ]; then
+    # shellcheck source=/dev/null
+    . "$LIB_PATH"
+elif [ -f "$SCRIPT_DIR/cp-lib.sh" ]; then
+    # shellcheck source=/dev/null
+    . "$SCRIPT_DIR/cp-lib.sh"
+else
+    echo "[ERROR] Missing $LIB_PATH. Please run cp-update or reinstall CLIProxy."
+    exit 1
+fi
+cp_init_colors
 
 BINARY="$HOME/.cliproxyapi/bin/cliproxyapi"
 CONFIG="$HOME/.cliproxyapi/config.yaml"
@@ -130,26 +136,24 @@ menu_cli_apps() {
 
 menu_update() {
     clear
-    echo -e "${CYAN}${BOLD}  ══  Update  ══${NC}"
-    echo ""
-    echo -e "${YELLOW}Running CLIProxy update...${NC}"
-    echo ""
+    cp_print_header "Update"
+    cp_info "Running CLIProxy update..."
     if command -v cp-update &> /dev/null; then
         cp-update
     elif [ -f "$HOME/.cliproxyapi/scripts/start.sh" ]; then
-        echo "Reinstalling CLIProxy..."
+        cp_info "Reinstalling CLIProxy..."
         if command -v go &> /dev/null; then
             TEMP_DIR=$(mktemp -d)
             git clone --depth 1 https://github.com/router-for-me/CLIProxyAPIPlus.git "$TEMP_DIR" 2>/dev/null
             cd "$TEMP_DIR" && go build -o cliproxyapi ./cmd/server 2>/dev/null
             mv -f cliproxyapi "$HOME/.cliproxyapi/bin/cliproxyapi" 2>/dev/null
             rm -rf "$TEMP_DIR"
-            echo -e "${GREEN}[OK] CLIProxy updated!${NC}"
+            cp_ok "CLIProxy updated."
         else
-            echo -e "${RED}[Error] Go is not installed. Please install Go first.${NC}"
+            cp_error "Go is not installed. Please install Go first."
         fi
     else
-        echo -e "${RED}[Error] CLIProxy not found. Please install CLIProxy first.${NC}"
+        cp_error "CLIProxy not found. Please install CLIProxy first."
     fi
     echo ""
     read -p "Press Enter to continue..."
@@ -158,8 +162,7 @@ menu_update() {
 main_menu() {
     while true; do
         clear
-        echo -e "${CYAN}${BOLD}  ══  CLIProxy Installer Manager  ══${NC}"
-        echo ""
+        cp_print_header "Installer Manager"
         echo -e "  ${BOLD}${GREEN}1${NC}  Full Install"
         echo -e "  ${BOLD}${GREEN}2${NC}  Dependencies"
         echo -e "  ${BOLD}${GREEN}3${NC}  CLIProxy"
@@ -169,8 +172,7 @@ main_menu() {
         echo ""
         echo -e "  ${BOLD}${RED}0${NC}  Exit"
         echo ""
-        echo -ne "  ${BOLD}›${NC} Select menu ${DIM}(0-6)${NC}: "
-        read c
+        cp_prompt "Select menu ${DIM}(0-6)${NC}" c
         case $c in
             1) menu_full_install ;;
             2) 
@@ -187,7 +189,7 @@ main_menu() {
                 read -p "Press Enter to continue..."
                 ;;
             0) echo "Exiting..."; exit 0 ;;
-            *) echo "Invalid choice." ;;
+            *) cp_warn "Invalid choice." ;;
         esac
     done
 }

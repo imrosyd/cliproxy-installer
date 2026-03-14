@@ -8,7 +8,8 @@
 $DashboardUrl = "http://localhost:8317/dashboard.html"
 $Port = 8317
 
-Write-Host "  ══  CLIProxy Dashboard  ══" -ForegroundColor Cyan
+Write-Host "  ══  CLIProxy • Dashboard  ══" -ForegroundColor Cyan
+Write-Host "  URL: http://localhost:$Port/" -ForegroundColor DarkGray
 Write-Host ""
 
 # Check if server is running
@@ -23,7 +24,7 @@ if ($process) {
     # Check if cp-start exists (as function or alias)
     if (Get-Command cp-start -ErrorAction SilentlyContinue) {
         Start-Job -ScriptBlock { cp-start } | Out-Null
-        Write-Host "Waiting for server to start..." -ForegroundColor Yellow
+        Write-Host "[i] Waiting for server to start..." -ForegroundColor Cyan
         
         # Wait up to 10 seconds
         $waited = 0
@@ -50,10 +51,10 @@ if ($process) {
 }
 
 Write-Host ""
-Write-Host "Opening dashboard: $DashboardUrl" -ForegroundColor Cyan
+Write-Host "[i] Opening dashboard: $DashboardUrl" -ForegroundColor Cyan
 Write-Host ""
 
 # Open in default browser
 Start-Process $DashboardUrl
 
-Write-Host "[OK] Dashboard opened successfully!" -ForegroundColor Green
+Write-Host "[OK] Dashboard opened." -ForegroundColor Green

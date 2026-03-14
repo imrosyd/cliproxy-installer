@@ -2513,17 +2513,26 @@ async function toggleAccountStatus(id, checked, el) {
         if (isCustom) {
             // Custom provider: use toggle-provider API (which auto-restarts)
             const providerName = String(id).replace(/^custom-/, '');
-            resp = await fetch('api/system/toggle-provider/' + encodeURIComponent(providerName), {
+            resp = await fetchSystemApi('/api/system/toggle-provider/' + encodeURIComponent(providerName), {
                 method: 'PUT',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'X-Management-Key': MANAGEMENT_KEY
                 },
                 body: JSON.stringify({ enabled: checked })
             });
             
             if (resp.ok) {
-                const result = await resp.json();
                 showToast(checked ? 'Provider enabled, proxy restarting...' : 'Provider disabled, proxy restarting...', 'success');
+                const acc = accountsData.find(a => String(a.id) === String(id));
+                if (acc) {
+                    acc.disabled = !checked;
+                    acc.status = checked ? 'active' : 'disabled';
+                    acc.status_message = checked ? '' : 'Disabled from dashboard';
+                    acc.statusMeta = getAccountStatusMeta(acc);
+                }
+                updateDashboardStats();
+                renderAccountsTable(accountsData);
                 // Wait for proxy to restart
                 setTimeout(() => refreshAll(), 3000);
                 return;
