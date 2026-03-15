@@ -978,6 +978,10 @@
                 Accounts
                 <span class="nav-badge" id="accountsBadge">0</span>
             </a>
+            <a href="#" class="nav-item" data-tab="antigravity">
+                <i data-lucide="rocket" class="n-icon"></i>
+                Antigravity Manager
+            </a>
         </div>
         <div class="nav-group">
             <div class="nav-group-label">System</div>
@@ -1212,6 +1216,50 @@
             <div class="table-footer">
                 <div class="table-info" id="accountsInfo">—</div>
                 <div class="pagination" id="accountsPagination"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Antigravity Manager Tab -->
+    <div id="tab-antigravity" class="tab-content">
+        <div class="page-header">
+            <div class="page-heading">
+                <div class="page-title-row">
+                    <button class="sidebar-toggle-btn" type="button" onclick="toggleMobileSidebar()" aria-label="Open Antigravity menu">
+                        <i data-lucide="panel-left-close" style="width:16px;height:16px"></i>
+                    </button>
+                    <h1>Antigravity Manager</h1>
+                </div>
+                <p>Monitoring sisa quota Antigravity</p>
+            </div>
+            <div class="header-actions">
+                <button class="btn btn-outline" onclick="refreshAll()">
+                    <i data-lucide="refresh-cw" style="width:13px;height:13px"></i>
+                    Refresh
+                </button>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <div>
+                    <div class="card-title">Quota Overview</div>
+                    <div class="card-subtitle">Last updated: <span id="antigravityLastUpdated">—</span></div>
+                </div>
+                <div class="card-actions">
+                    <span class="badge badge-default" style="font-size:11px;">Data dari quota-fetcher</span>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="alert" style="margin-bottom:16px;">
+                    <div class="alert-title">Info</div>
+                    <div class="alert-message">
+                        Data quota akan update ketika <code>quota-fetcher.py</code> berjalan (via <code>cp-antigravity</code> atau cron).
+                    </div>
+                </div>
+                <div class="quota-grid" id="antigravityGrid">
+                    <div class="loading-state"><div class="spinner"></div><p>Loading…</p></div>
+                </div>
             </div>
         </div>
     </div>
@@ -1589,6 +1637,7 @@ function switchTab(tabName) {
     else if (tabName === 'settings') loadSettings();
     else if (tabName === 'dashboard') renderDashboardPreview();
     else if (tabName === 'insights') loadInsightsData();
+    else if (tabName === 'antigravity') renderAntigravityManager();
 
     closeMobileSidebar();
 }
@@ -1786,6 +1835,8 @@ async function refreshAll() {
             loadSettings();
         } else if (currentTab === 'insights') {
             loadInsightsData();
+        } else if (currentTab === 'antigravity') {
+            renderAntigravityManager();
         } else {
             renderDashboardPreview();
         }
@@ -1803,6 +1854,8 @@ async function refreshAll() {
             loadSettings();
         } else if (currentTab === 'insights') {
             loadInsightsData();
+        } else if (currentTab === 'antigravity') {
+            renderAntigravityManager();
         } else {
             renderDashboardPreview();
         }
@@ -2106,6 +2159,105 @@ function renderDashboardPreview() {
             '<div style="display:flex;gap:6px;align-items:center">' + modelBadge + badge + '</div>' +
         '</div>';
     }).join('') + '</div>';
+
+    lucide.createIcons();
+}
+
+/* ── Antigravity Manager ────────────────────────────── */
+function getQuotaClass(value) {
+    if (value === null || value === undefined) return 'na';
+    if (value >= 0.6) return 'high';
+    if (value >= 0.3) return 'medium';
+    return 'low';
+}
+
+function formatQuotaPercent(value) {
+    if (value === null || value === undefined || Number.isNaN(Number(value))) return 'N/A';
+    return Math.round(Number(value) * 100) + '%';
+}
+
+function formatResetTime(value) {
+    if (!value) return '';
+    try {
+        return new Date(value).toLocaleString();
+    } catch {
+        return String(value);
+    }
+}
+
+function renderQuotaRow(label, icon, quota) {
+    const remaining = quota?.remaining;
+    const className = getQuotaClass(remaining);
+    const pct = formatQuotaPercent(remaining);
+    const width = (remaining && remaining >= 0) ? Math.round(remaining * 100) : 0;
+    const reset = formatResetTime(quota?.resetTime);
+    const resetText = reset ? '<div class="quota-row-name">' + escapeHtml(label) + ' • reset: ' + escapeHtml(reset) + '</div>' : '<div class="quota-row-name">' + escapeHtml(label) + '</div>';
+
+    return (
+        '<div class="quota-row">' +
+            '<i data-lucide="' + icon + '" class="quota-row-icon"></i>' +
+            '<div style="flex:1;">' +
+                resetText +
+                '<div class="quota-row-bar"><div class="quota-row-fill ' + className + '" style="width:' + width + '%"></div></div>' +
+            '</div>' +
+            '<div class="quota-row-pct ' + className + '">' + pct + '</div>' +
+        '</div>'
+    );
+}
+
+function renderAntigravityManager() {
+    const grid = document.getElementById('antigravityGrid');
+    const updatedEl = document.getElementById('antigravityLastUpdated');
+    if (!grid) return;
+
+    const lastUpdated = quotaCache?.lastUpdated;
+    if (updatedEl) {
+        updatedEl.textContent = lastUpdated ? formatResetTime(lastUpdated) : '—';
+    }
+
+    let sourceEntries = [];
+    if (Array.isArray(accountsData) && accountsData.length > 0) {
+        sourceEntries = accountsData.filter(function(acc) {
+            const raw = String(acc.provider || acc.type || '').toLowerCase();
+            return raw.includes('antigravity');
+        });
+    }
+
+    if (sourceEntries.length === 0) {
+        sourceEntries = Object.values(quotaCache?.accounts || {});
+    }
+
+    if (sourceEntries.length === 0) {
+        grid.innerHTML = '<div class="empty-state">' +
+            '<i data-lucide="inbox" style="width:24px;height:24px"></i>' +
+            '<p>Belum ada data quota. Jalankan <code>cp-antigravity</code> untuk refresh.</p>' +
+            '</div>';
+        lucide.createIcons();
+        return;
+    }
+
+    grid.innerHTML = sourceEntries.map(function(acc) {
+        const email = acc.email || acc.username || 'unknown';
+        const initial = escapeHtml(String(email || '?')[0].toUpperCase());
+        const typeLabel = acc.type ? (' • ' + escapeHtml(String(acc.type))) : '';
+        const quota = acc.quota || resolveQuota(acc) || {};
+
+        return '<div class="quota-card">' +
+            '<div class="quota-card-header">' +
+                '<div class="quota-avatar">' + initial + '</div>' +
+                '<div>' +
+                    '<div class="quota-email-name">' + escapeHtml(String(email).split('@')[0]) + typeLabel + '</div>' +
+                    '<div class="quota-email-full">' + escapeHtml(String(email)) + '</div>' +
+                '</div>' +
+            '</div>' +
+            '<div class="quota-items">' +
+                renderQuotaRow('Gemini Pro', 'sparkles', quota.geminiPro) +
+                renderQuotaRow('Claude', 'feather', quota.claude) +
+                renderQuotaRow('Gemini Flash', 'zap', quota.geminiFlash) +
+                renderQuotaRow('Gemini Image', 'image', quota.geminiImage) +
+            '</div>' +
+        '</div>';
+    }).join('');
 
     lucide.createIcons();
 }

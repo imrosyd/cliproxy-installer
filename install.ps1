@@ -112,11 +112,12 @@ function Setup-Shortcuts {
     }
 
     # Define the block of code to inject
-    $shortcutBlock = @"
+$shortcutBlock = @"
 
 # --- CLIProxy Shortcuts ---
 function cp-start { & "$ScriptsDir\start.ps1" }
 function cp-login { & "$ScriptsDir\login.ps1" }
+function cp-antigravity { & "$ScriptsDir\cp-antigravity.ps1" }
 function cp-update {
     Write-Host "Updating CLIProxy..."
     Invoke-WebRequest -Uri "https://raw.githubusercontent.com/imrosyd/cliproxy-installer/main/install.ps1" -OutFile "$env:TEMP\install.ps1"
@@ -194,6 +195,38 @@ function Install-CLIProxy {
             Write-Green "[OK] cp-db downloaded from GitHub"
         } catch {
             Write-Yellow "[!] Could not install cp-db command"
+        }
+    }
+
+    # Install cp-antigravity command
+    Write-Host "Installing cp-antigravity shortcut..."
+    $CpAgSrc = Join-Path (Split-Path $PSCommandPath) "assets\scripts\cp-antigravity.ps1"
+    $CpAgDest = "$ScriptsDir\cp-antigravity.ps1"
+    if (Test-Path $CpAgSrc) {
+        Copy-Item $CpAgSrc $CpAgDest -Force
+        Write-Green "[OK] cp-antigravity installed from local assets"
+    } else {
+        try {
+            Invoke-WebRequest -Uri "https://raw.githubusercontent.com/imrosyd/cliproxy-installer/main/assets/scripts/cp-antigravity.ps1" -OutFile $CpAgDest -ErrorAction Stop
+            Write-Green "[OK] cp-antigravity downloaded from GitHub"
+        } catch {
+            Write-Yellow "[!] Could not install cp-antigravity command"
+        }
+    }
+
+    # Install cp-antigravity python helper
+    Write-Host "Installing cp-antigravity helper..."
+    $CpAgPySrc = Join-Path (Split-Path $PSCommandPath) "assets\scripts\cp-antigravity.py"
+    $CpAgPyDest = "$ScriptsDir\cp-antigravity.py"
+    if (Test-Path $CpAgPySrc) {
+        Copy-Item $CpAgPySrc $CpAgPyDest -Force
+        Write-Green "[OK] cp-antigravity helper installed from local assets"
+    } else {
+        try {
+            Invoke-WebRequest -Uri "https://raw.githubusercontent.com/imrosyd/cliproxy-installer/main/assets/scripts/cp-antigravity.py" -OutFile $CpAgPyDest -ErrorAction Stop
+            Write-Green "[OK] cp-antigravity helper downloaded from GitHub"
+        } catch {
+            Write-Yellow "[!] Could not install cp-antigravity helper"
         }
     }
 
@@ -417,10 +450,25 @@ switch (`$choice) {
     Write-Host "Please restart your PowerShell terminal to use shortcuts:"
     Write-Cyan "  1. Login:  cp-login"
     Write-Cyan "  2. Start:  cp-start"
-    Write-Cyan "  3. Update: cp-update"
+    Write-Cyan "  3. Quota:  cp-antigravity"
+    Write-Cyan "  4. Update: cp-update"
 }
 
 # ── Execution Flow ──
+
+function Run-AntigravityManager {
+    if (Get-Command cp-antigravity -ErrorAction SilentlyContinue) {
+        cp-antigravity
+        return
+    }
+    $localScript = "$ScriptsDir\\cp-antigravity.ps1"
+    if (Test-Path $localScript) {
+        & $localScript
+        return
+    }
+    Write-Host "[!] Antigravity Manager belum terpasang. Install CLIProxy terlebih dahulu." -ForegroundColor Yellow
+    Read-Host "Press Enter to continue" | Out-Null
+}
 
 function Show-MainMenu {
     while ($true) {
@@ -433,10 +481,11 @@ function Show-MainMenu {
         Write-Host "4. Update"
         Write-Host "5. CLI Apps"
         Write-Host "6. Uninstall"
+        Write-Host "7. Antigravity Manager"
         Write-Host ""
         Write-Host "0. Exit"
         Write-Host ""
-        $menuChoice = Read-Host "Select menu (0-6)"
+        $menuChoice = Read-Host "Select menu (0-7)"
         
         switch ($menuChoice) {
             '1' { Show-FullInstallMenu }
@@ -445,6 +494,7 @@ function Show-MainMenu {
             '4' { Install-CLIProxy -Update }
             '5' { Show-CLIAppsMenu }
             '6' { Uninstall-CLIProxy }
+            '7' { Run-AntigravityManager }
             '0' { Write-Host "Exiting..."; exit }
             Default { Write-Red "Invalid choice."; Start-Sleep 1 }
         }

@@ -95,6 +95,7 @@ remove_aliases() {
         sed -i '/alias cp-stop/d' "$config" 2>/dev/null || sed -i '' '/alias cp-stop/d' "$config" 2>/dev/null
         sed -i '/alias cp-claude/d' "$config" 2>/dev/null || sed -i '' '/alias cp-claude/d' "$config" 2>/dev/null
         sed -i '/alias cp-db/d' "$config" 2>/dev/null || sed -i '' '/alias cp-db/d' "$config" 2>/dev/null
+        sed -i '/alias cp-antigravity/d' "$config" 2>/dev/null || sed -i '' '/alias cp-antigravity/d' "$config" 2>/dev/null
         sed -i '/alias cp-opencode/d' "$config" 2>/dev/null || sed -i '' '/alias cp-opencode/d' "$config" 2>/dev/null
         sed -i '/alias cp-kilo/d' "$config" 2>/dev/null || sed -i '' '/alias cp-kilo/d' "$config" 2>/dev/null
         sed -i '/alias cp-droid/d' "$config" 2>/dev/null || sed -i '' '/alias cp-droid/d' "$config" 2>/dev/null
@@ -201,4 +202,3 @@ echo ""
 echo -e "${YELLOW}Restarting shell...${NC}"
 sleep 1
 exec "$SHELL" -i
-

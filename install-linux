@@ -77,6 +77,7 @@ show_available_commands() {
     echo -e "  ${CYAN}cp-kilo${NC}        ${DIM}Launch KiloCode${NC}"
     echo -e "  ${CYAN}cp-droid${NC}       ${DIM}Launch Factory.ai Droid${NC}"
     echo -e "  ${CYAN}cp-db${NC}          ${DIM}Open Dashboard${NC}"
+    echo -e "  ${CYAN}cp-antigravity${NC} ${DIM}Antigravity Manager (Quota)${NC}"
     echo -e "  ${CYAN}cp-uninstall${NC}   ${DIM}Uninstall CLIProxy${NC}"
     echo ""
 }
@@ -115,6 +116,7 @@ setup_shortcuts() {
         sed -i '/alias cp-login-url/d' "$FISH_CONFIG" 2>/dev/null || true
         sed -i '/alias cp-claude/d' "$FISH_CONFIG" 2>/dev/null || true
         sed -i '/alias cp-db/d' "$FISH_CONFIG" 2>/dev/null || true
+        sed -i '/alias cp-antigravity/d' "$FISH_CONFIG" 2>/dev/null || true
         sed -i '/alias cp-opencode/d' "$FISH_CONFIG" 2>/dev/null || true
         sed -i '/alias cp-droid/d' "$FISH_CONFIG" 2>/dev/null || true
         sed -i '/alias cp-uninstall/d' "$FISH_CONFIG" 2>/dev/null || true
@@ -129,6 +131,7 @@ setup_shortcuts() {
         echo "alias cp-update='curl -sL https://raw.githubusercontent.com/imrosyd/cliproxy-installer/main/install-linux | bash -s -- -update'" >> "$FISH_CONFIG"
         echo "alias cp-claude='$HOME/.cliproxyapi/scripts/cp-claude.sh'" >> "$FISH_CONFIG"
         echo "alias cp-db='$HOME/.cliproxyapi/bin/cp-db'" >> "$FISH_CONFIG"
+        echo "alias cp-antigravity='$HOME/.cliproxyapi/scripts/cp-antigravity.sh'" >> "$FISH_CONFIG"
         echo "alias cp-opencode='$HOME/.cliproxyapi/scripts/cp-opencode.sh'" >> "$FISH_CONFIG"
         echo "alias cp-droid='$HOME/.cliproxyapi/scripts/cp-droid.sh'" >> "$FISH_CONFIG"
         echo "alias cp-uninstall='curl -sL https://raw.githubusercontent.com/imrosyd/cliproxy-installer/main/uninstall | bash'" >> "$FISH_CONFIG"
@@ -150,6 +153,7 @@ setup_shortcuts() {
     sed -i '/alias cp-update/d' "$SHELL_CONFIG" 2>/dev/null || true
     sed -i '/alias cp-claude/d' "$SHELL_CONFIG" 2>/dev/null || true
     sed -i '/alias cp-db/d' "$SHELL_CONFIG" 2>/dev/null || true
+    sed -i '/alias cp-antigravity/d' "$SHELL_CONFIG" 2>/dev/null || true
     sed -i '/alias cp-opencode/d' "$SHELL_CONFIG" 2>/dev/null || true
     sed -i '/alias cp-droid/d' "$SHELL_CONFIG" 2>/dev/null || true
     sed -i '/alias cp-add-provider/d' "$SHELL_CONFIG" 2>/dev/null || true
@@ -166,6 +170,7 @@ setup_shortcuts() {
     echo "alias cp-update=\"curl -sL https://raw.githubusercontent.com/imrosyd/cliproxy-installer/main/install-linux | bash -s -- -update\"" >> "$SHELL_CONFIG"
     echo "alias cp-claude=\"$HOME/.cliproxyapi/scripts/cp-claude.sh\"" >> "$SHELL_CONFIG"
     echo "alias cp-db=\"$HOME/.cliproxyapi/bin/cp-db\"" >> "$SHELL_CONFIG"
+    echo "alias cp-antigravity=\"$HOME/.cliproxyapi/scripts/cp-antigravity.sh\"" >> "$SHELL_CONFIG"
     echo "alias cp-opencode=\"$HOME/.cliproxyapi/scripts/cp-opencode.sh\"" >> "$SHELL_CONFIG"
     echo "alias cp-kilo=\"$HOME/.cliproxyapi/scripts/cp-kilo.sh\"" >> "$SHELL_CONFIG"
     echo "alias cp-droid=\"$HOME/.cliproxyapi/scripts/cp-droid.sh\"" >> "$SHELL_CONFIG"
@@ -304,47 +309,8 @@ install_cliproxy() {
 
     # Set CONFIG_DIR
     CONFIG_DIR="$HOME/.cliproxyapi"
-    
-    # Check if existing config/auth exists - if yes, skip entirely (never overwrite)
-    HAS_EXISTING=false
-    if [ -d "$CONFIG_DIR" ]; then
-        if [ -f "$CONFIG_DIR/config.yaml" ]; then
-            HAS_EXISTING=true
-            echo -e "${CYAN}[i] Found existing config.yaml${NC}"
-        fi
-        if [ "$(ls -1 "$CONFIG_DIR"/*.json 2>/dev/null | wc -l)" -gt 0 ]; then
-            HAS_EXISTING=true
-            echo -e "${CYAN}[i] Found existing auth files (.json)${NC}"
-        fi
-    fi
-    
-    if [ "$HAS_EXISTING" = true ]; then
-        echo -e "${CYAN}[i] CLIProxy already installed with config/auth${NC}"
-        echo -e "${CYAN}[i] To reinstall fresh, please uninstall first: curl -fsSL .../install-linux | bash -s -- -uninstall-cliproxy${NC}"
-        echo -e "${GREEN}[OK] Existing installation preserved.${NC}"
-        return 0
-    fi
-
-    echo -e "${YELLOW}>>> Starting CLIProxy Installation...${NC}"
-
-    # Re-set CONFIG_DIR after clean
-    CONFIG_DIR="$HOME/.cliproxyapi"
     BIN_DIR="$CONFIG_DIR/bin"
     SCRIPTS_DIR="$CONFIG_DIR/scripts"
-
-    # Ensure bin is in PATH
-    if [[ ":$PATH:" != *":$CONFIG_DIR/bin:"* ]] && [[ ":$PATH:" != *":$HOME/.cliproxyapi/bin:"* ]]; then
-        echo 'export PATH="$HOME/.cliproxyapi/bin:$PATH"' >> "$HOME/.bashrc"
-        [ -f "$HOME/.zshrc" ] && echo 'export PATH="$HOME/.cliproxyapi/bin:$PATH"' >> "$HOME/.zshrc"
-        [ -f "$HOME/.config/fish/config.fish" ] && echo 'set -gx PATH $HOME/.cliproxyapi/bin $PATH' >> "$HOME/.config/fish/config.fish"
-        echo -e "${YELLOW}[!] Added $HOME/.cliproxyapi/bin to PATH.${NC}"
-    fi
-
-    mkdir -p "$BIN_DIR"
-    mkdir -p "$CONFIG_DIR"
-    mkdir -p "$SCRIPTS_DIR"
-    STATIC_DIR="$CONFIG_DIR/static"
-    mkdir -p "$STATIC_DIR"
 
     install_asset() {
         local label="$1"
@@ -374,41 +340,92 @@ install_cliproxy() {
         return 0
     }
 
-    install_asset "script library" "assets/scripts/cp-lib.sh" \
-        "https://raw.githubusercontent.com/imrosyd/cliproxy-installer/main/assets/scripts/cp-lib.sh" \
-        "$SCRIPTS_DIR/cp-lib.sh" true
+    install_cliproxy_assets() {
+        mkdir -p "$BIN_DIR" "$CONFIG_DIR" "$SCRIPTS_DIR"
+        STATIC_DIR="$CONFIG_DIR/static"
+        mkdir -p "$STATIC_DIR"
 
-    install_asset "dashboard" "assets/static/dashboard.html" \
-        "https://raw.githubusercontent.com/imrosyd/cliproxy-installer/main/assets/static/dashboard.html" \
-        "$STATIC_DIR/dashboard.html" false
+        install_asset "script library" "assets/scripts/cp-lib.sh" \
+            "https://raw.githubusercontent.com/imrosyd/cliproxy-installer/main/assets/scripts/cp-lib.sh" \
+            "$SCRIPTS_DIR/cp-lib.sh" true
 
-    install_asset "quota fetcher" "assets/scripts/quota-fetcher.py" \
-        "https://raw.githubusercontent.com/imrosyd/cliproxy-installer/main/assets/scripts/quota-fetcher.py" \
-        "$SCRIPTS_DIR/quota-fetcher.py" true
+        install_asset "dashboard" "assets/static/dashboard.html" \
+            "https://raw.githubusercontent.com/imrosyd/cliproxy-installer/main/assets/static/dashboard.html" \
+            "$STATIC_DIR/dashboard.html" false
 
-    install_asset "unified server" "unified-server.py" \
-        "https://raw.githubusercontent.com/imrosyd/cliproxy-installer/main/unified-server.py" \
-        "$SCRIPTS_DIR/unified-server.py" true
+        install_asset "quota fetcher" "assets/scripts/quota-fetcher.py" \
+            "https://raw.githubusercontent.com/imrosyd/cliproxy-installer/main/assets/scripts/quota-fetcher.py" \
+            "$SCRIPTS_DIR/quota-fetcher.py" true
 
-    install_asset "cp-db" "assets/scripts/cp-db.sh" \
-        "https://raw.githubusercontent.com/imrosyd/cliproxy-installer/main/assets/scripts/cp-db.sh" \
-        "$BIN_DIR/cp-db" true
+        install_asset "unified server" "unified-server.py" \
+            "https://raw.githubusercontent.com/imrosyd/cliproxy-installer/main/unified-server.py" \
+            "$SCRIPTS_DIR/unified-server.py" true
 
-    install_asset "cp-claude" "assets/scripts/cp-claude.sh" \
-        "https://raw.githubusercontent.com/imrosyd/cliproxy-installer/main/assets/scripts/cp-claude.sh" \
-        "$SCRIPTS_DIR/cp-claude.sh" true
+        install_asset "cp-db" "assets/scripts/cp-db.sh" \
+            "https://raw.githubusercontent.com/imrosyd/cliproxy-installer/main/assets/scripts/cp-db.sh" \
+            "$BIN_DIR/cp-db" true
 
-    install_asset "cp-opencode" "assets/scripts/cp-opencode.sh" \
-        "https://raw.githubusercontent.com/imrosyd/cliproxy-installer/main/assets/scripts/cp-opencode.sh" \
-        "$SCRIPTS_DIR/cp-opencode.sh" true
+        install_asset "cp-claude" "assets/scripts/cp-claude.sh" \
+            "https://raw.githubusercontent.com/imrosyd/cliproxy-installer/main/assets/scripts/cp-claude.sh" \
+            "$SCRIPTS_DIR/cp-claude.sh" true
 
-    install_asset "cp-kilo" "assets/scripts/cp-kilo.sh" \
-        "https://raw.githubusercontent.com/imrosyd/cliproxy-installer/main/assets/scripts/cp-kilo.sh" \
-        "$SCRIPTS_DIR/cp-kilo.sh" true
+        install_asset "cp-antigravity python script" "assets/scripts/cp-antigravity.py" \
+            "https://raw.githubusercontent.com/imrosyd/cliproxy-installer/main/assets/scripts/cp-antigravity.py" \
+            "$SCRIPTS_DIR/cp-antigravity.py" true
 
-    install_asset "cp-droid" "assets/scripts/cp-droid.sh" \
-        "https://raw.githubusercontent.com/imrosyd/cliproxy-installer/main/assets/scripts/cp-droid.sh" \
-        "$SCRIPTS_DIR/cp-droid.sh" true
+        install_asset "cp-antigravity script" "assets/scripts/cp-antigravity.sh" \
+            "https://raw.githubusercontent.com/imrosyd/cliproxy-installer/main/assets/scripts/cp-antigravity.sh" \
+            "$SCRIPTS_DIR/cp-antigravity.sh" true
+
+        install_asset "cp-opencode" "assets/scripts/cp-opencode.sh" \
+            "https://raw.githubusercontent.com/imrosyd/cliproxy-installer/main/assets/scripts/cp-opencode.sh" \
+            "$SCRIPTS_DIR/cp-opencode.sh" true
+
+        install_asset "cp-kilo" "assets/scripts/cp-kilo.sh" \
+            "https://raw.githubusercontent.com/imrosyd/cliproxy-installer/main/assets/scripts/cp-kilo.sh" \
+            "$SCRIPTS_DIR/cp-kilo.sh" true
+
+        install_asset "cp-droid" "assets/scripts/cp-droid.sh" \
+            "https://raw.githubusercontent.com/imrosyd/cliproxy-installer/main/assets/scripts/cp-droid.sh" \
+            "$SCRIPTS_DIR/cp-droid.sh" true
+    }
+    
+    # Check if existing config/auth exists - if yes, skip entirely (never overwrite)
+    HAS_EXISTING=false
+    if [ -d "$CONFIG_DIR" ]; then
+        if [ -f "$CONFIG_DIR/config.yaml" ]; then
+            HAS_EXISTING=true
+            echo -e "${CYAN}[i] Found existing config.yaml${NC}"
+        fi
+        if [ "$(ls -1 "$CONFIG_DIR"/*.json 2>/dev/null | wc -l)" -gt 0 ]; then
+            HAS_EXISTING=true
+            echo -e "${CYAN}[i] Found existing auth files (.json)${NC}"
+        fi
+    fi
+    
+    if [ "$HAS_EXISTING" = true ]; then
+        if [ "$IS_UPDATE" = "true" ]; then
+            echo -e "${CYAN}[i] Updating CLIProxy assets (preserve config/auth)${NC}"
+            install_cliproxy_assets
+            echo -e "${GREEN}[OK] Assets updated.${NC}"
+        else
+            echo -e "${CYAN}[i] CLIProxy already installed with config/auth${NC}"
+            echo -e "${CYAN}[i] To reinstall fresh, please uninstall first: curl -fsSL .../install-linux | bash -s -- -uninstall-cliproxy${NC}"
+            echo -e "${GREEN}[OK] Existing installation preserved.${NC}"
+        fi
+        return 0
+    fi
+
+    echo -e "${YELLOW}>>> Starting CLIProxy Installation...${NC}"
+
+    # Ensure bin is in PATH
+    if [[ ":$PATH:" != *":$CONFIG_DIR/bin:"* ]] && [[ ":$PATH:" != *":$HOME/.cliproxyapi/bin:"* ]]; then
+        echo 'export PATH="$HOME/.cliproxyapi/bin:$PATH"' >> "$HOME/.bashrc"
+        [ -f "$HOME/.zshrc" ] && echo 'export PATH="$HOME/.cliproxyapi/bin:$PATH"' >> "$HOME/.zshrc"
+        [ -f "$HOME/.config/fish/config.fish" ] && echo 'set -gx PATH $HOME/.cliproxyapi/bin $PATH' >> "$HOME/.config/fish/config.fish"
+        echo -e "${YELLOW}[!] Added $HOME/.cliproxyapi/bin to PATH.${NC}"
+    fi
+    install_cliproxy_assets
 
 
     # Clone & Build
@@ -1155,6 +1172,19 @@ menu_cli_apps() {
     done
 }
 
+run_antigravity_manager() {
+    if command -v cp-antigravity >/dev/null 2>&1; then
+        cp-antigravity
+        return 0
+    fi
+    if [ -f "$HOME/.cliproxyapi/scripts/cp-antigravity.sh" ]; then
+        bash "$HOME/.cliproxyapi/scripts/cp-antigravity.sh"
+        return 0
+    fi
+    echo -e "${YELLOW}[!] Antigravity Manager belum terpasang. Install CLIProxy terlebih dahulu.${NC}"
+    read -p "Press Enter to continue..."
+}
+
 main_menu() {
     while true; do
         clear
@@ -1166,10 +1196,11 @@ main_menu() {
         echo -e "  ${BOLD}${GREEN}4${NC}  Update"
         echo -e "  ${BOLD}${GREEN}5${NC}  CLI Apps"
         echo -e "  ${BOLD}${GREEN}6${NC}  Uninstall"
+        echo -e "  ${BOLD}${GREEN}7${NC}  Antigravity Manager"
         echo ""
         echo -e "  ${BOLD}${RED}0${NC}  Exit"
         echo ""
-        echo -ne "  ${BOLD}›${NC} Select menu ${DIM}(0-6)${NC}: "
+        echo -ne "  ${BOLD}›${NC} Select menu ${DIM}(0-7)${NC}: "
         read choice < /dev/tty
         echo ""
 
@@ -1199,6 +1230,9 @@ main_menu() {
                 fi
                 echo -e "${GREEN}Uninstall complete. Goodbye!${NC}"
                 exit 0
+                ;;
+            7)
+                run_antigravity_manager
                 ;;
             0) echo -e "${YELLOW}Goodbye!${NC}"; exit 0 ;;
             *) echo -e "${RED}Invalid choice.${NC}"; sleep 1 ;;

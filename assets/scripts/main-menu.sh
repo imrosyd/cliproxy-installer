@@ -169,10 +169,11 @@ main_menu() {
         echo -e "  ${BOLD}${GREEN}4${NC}  Update"
         echo -e "  ${BOLD}${GREEN}5${NC}  CLI Apps"
         echo -e "  ${BOLD}${GREEN}6${NC}  Uninstall"
+        echo -e "  ${BOLD}${GREEN}7${NC}  Antigravity Manager"
         echo ""
         echo -e "  ${BOLD}${RED}0${NC}  Exit"
         echo ""
-        cp_prompt "Select menu ${DIM}(0-6)${NC}" c
+        cp_prompt "Select menu ${DIM}(0-7)${NC}" c
         case $c in
             1) menu_full_install ;;
             2) 
@@ -187,6 +188,16 @@ main_menu() {
                 echo "Running Uninstall..."
                 echo ""
                 read -p "Press Enter to continue..."
+                ;;
+            7)
+                if command -v cp-antigravity >/dev/null 2>&1; then
+                    cp-antigravity
+                elif [ -f "$HOME/.cliproxyapi/scripts/cp-antigravity.sh" ]; then
+                    bash "$HOME/.cliproxyapi/scripts/cp-antigravity.sh"
+                else
+                    cp_warn "Antigravity Manager belum terpasang."
+                    read -p "Press Enter to continue..."
+                fi
                 ;;
             0) echo "Exiting..."; exit 0 ;;
             *) cp_warn "Invalid choice." ;;

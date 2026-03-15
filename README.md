@@ -62,6 +62,7 @@ Dashboard: `http://localhost:8317/`
 | `cp-opencode` | Launch OpenCode via CLIProxy |
 | `cp-kilo` | Launch KiloCode via CLIProxy (AI coding assistant, via CLIProxy endpoint) |
 | `cp-droid` | Launch Factory.ai Droid via CLIProxy |
+| `cp-antigravity` | Antigravity Manager (monitor quota) |
 | `cp-uninstall` | Remove CLIProxy |
 
 ---
